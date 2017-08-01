@@ -6,6 +6,7 @@
 #elif defined(__linux__)
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <mutex>
 #endif
 
 
@@ -63,6 +64,10 @@ public:
 
     void setServerListenSockfd(int __Sockfd) {mListenSockfd = __Sockfd;}
 
+    std::mutex& mutex() {
+		return mutex_;
+	}
+
 private:
 
     int mClientSockfd;
@@ -70,6 +75,7 @@ private:
     unsigned short mClientPort;
     int mSessionTimeout;
     int mListenSockfd;
+    std::mutex mutex_;
 
 };
 

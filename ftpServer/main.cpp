@@ -8,7 +8,7 @@ int main()
 {
     std::cout << "Welcome to my FtpServer......" << std::endl;
 
-    Service *service = new Service;
+    Service *service = new Service();
 
     service->ServiceInit();
 
