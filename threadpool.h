@@ -2,25 +2,18 @@
 #define THREADPOOL_H
 
 #include <vector>
-#include <pthread.h>
-#include <assert.h>
+#include <thread>
 
-
-class ThreadPool
-{
+class ThreadPool {
 public:
-    ThreadPool();
-    ~ThreadPool();
+  ThreadPool();
+  ~ThreadPool();
 
-    int ThreadsCreate(void *(* func)(void *), void *args, int thread_maxcnt);
-
-    int ThreadsAsyncJoin();
-
-    //std::mutex mutex;
+  int ThreadsCreate(void *(*func)(void *), void *args, int thread_maxcnt);
+  int ThreadsAsyncJoin();
 
 private:
-    std::vector<pthread_t> ThreadVector;
-
+  std::vector<std::thread*> threads_;
 
 };
 

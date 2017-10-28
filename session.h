@@ -3,79 +3,91 @@
 
 #if defined(__WIN32__)
 #include <winsock2.h>
+#include <mutex>
 #elif defined(__linux__)
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <mutex>
 #endif
 
-
-class Session
-{
+class Session {
 public:
-    Session();
-    ~Session();
+  Session();
+  ~Session();
 #if 0
-    void setSockID(int sockfd);
+  void setSockID(int sockfd);
 
-    void setIpAddress(unsigned int IpAddress);
+  void setIpAddress(unsigned int IpAddress);
 
-    void setPort(unsigned short Port);
+  void setPort(unsigned short Port);
 
-    void setSessionTimeout(int timeout);
+  void setSessionTimeout(int timeout);
 
-    void setRecvDelay(int interval);
+  void setRecvDelay(int interval);
 
-    void setListenSockfd(int sockfd);
+  void setListenSockfd(int sockfd);
 #endif
-    Session & operator = (Session &s2)
-    {
-        mClientSockfd    = s2.mClientSockfd;
-        mClientIpAddress = s2.mClientIpAddress;
-        mClientPort      = s2.mClientPort;
-        mSessionTimeout  = s2.mSessionTimeout;
+  Session & operator =(Session &s2) {
+    mClientSockfd = s2.mClientSockfd;
+    mClientIpAddress = s2.mClientIpAddress;
+    mClientPort = s2.mClientPort;
+    mSessionTimeout = s2.mSessionTimeout;
 
-        return (*this);
-    }
+    return (*this);
+  }
 
+  int getClientSocketID() {
+    return mClientSockfd;
+  }
 
+  void setClientSocketID(int __Sockfd) {
+    mClientSockfd = __Sockfd;
+  }
 
-    int getClientSocketID() {return mClientSockfd;}
+  unsigned int getClientIpAddress() {
+    return mClientIpAddress;
+  }
 
-    void setClientSocketID(int __Sockfd) {mClientSockfd = __Sockfd;}
+  void setClientIpAddress(unsigned int __IpAddress) {
+    mClientIpAddress = __IpAddress;
+  }
 
+  unsigned short getClientPort() {
+    return mClientPort;
+  }
 
-    unsigned int getClientIpAddress() {return mClientIpAddress;}
+  void setClientPort(unsigned short __Port) {
+    mClientPort = __Port;
+  }
 
-    void setClientIpAddress(unsigned int __IpAddress) {mClientIpAddress = __IpAddress;}
+  int getSessionTimeout() {
+    return mSessionTimeout;
+  }
 
+  void setSessionTimeout(int __Timeout) {
+    mSessionTimeout = __Timeout;
+  }
 
-    unsigned short getClientPort() {return mClientPort;}
+  int getServerListenSocket() {
+    return mListenSockfd;
+  }
 
-    void setClientPort(unsigned short __Port) {mClientPort = __Port;}
+  void setServerListenSockfd(int __Sockfd) {
+    mListenSockfd = __Sockfd;
+  }
 
-
-    int getSessionTimeout() {return mSessionTimeout;}
-
-    void setSessionTimeout(int __Timeout) {mSessionTimeout = __Timeout;}
-
-
-    int getServerListenSocket() {return mListenSockfd;}
-
-    void setServerListenSockfd(int __Sockfd) {mListenSockfd = __Sockfd;}
-
-    std::mutex& mutex() {
-		return mutex_;
-	}
+  std::mutex& mutex() {
+    return mutex_;
+  }
 
 private:
 
-    int mClientSockfd;
-    unsigned int mClientIpAddress;
-    unsigned short mClientPort;
-    int mSessionTimeout;
-    int mListenSockfd;
-    std::mutex mutex_;
+  int mClientSockfd;
+  unsigned int mClientIpAddress;
+  unsigned short mClientPort;
+  int mSessionTimeout;
+  int mListenSockfd;
+  std::mutex mutex_;
 
 };
 

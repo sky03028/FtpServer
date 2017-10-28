@@ -1,44 +1,31 @@
+#include <assert.h>
 #include "threadpool.h"
 
-ThreadPool::ThreadPool()
-{
-    ThreadVector.clear();
+ThreadPool::ThreadPool() {
 }
 
-ThreadPool::~ThreadPool()
-{
+ThreadPool::~ThreadPool() {
 
 }
 
+int ThreadPool::ThreadsCreate(void *(*func)(void *), void *args,
+    int thread_maxcnt) {
+  for (int index = 0; index < thread_maxcnt; index++) {
+    std::thread* thread = new std::thread(func);
+    assert(thread != nullptr);
+    threads_.push_back(thread);
+  }
+  return 0;
+}
 
-
-int ThreadPool::ThreadsCreate(void *(* func)(void *) , void *args, int thread_maxcnt)
-{
-    pthread_t thread_id;
-
-    for(int index = 0; index < thread_maxcnt; index++)
-    {
-        assert(pthread_create(&thread_id, NULL, func, args) == 0);
-        ThreadVector.push_back(thread_id);
+int ThreadPool::ThreadsAsyncJoin() {
+  for (int index = 0; index < threads_.size(); index++) {
+    if (threads_[index] != nullptr) {
+      threads_[index]->join();
+      delete threads_[index];
+      threads_[index] = nullptr;
     }
-
-    return 0;
+  }
+  return 0;
 }
-
-
-int ThreadPool::ThreadsAsyncJoin()
-{
-    int thread_maxcnt = ThreadVector.size();
-
-    /* for release the resource */
-    for(int index = 0; index < thread_maxcnt; index++)
-    {
-        pthread_join(ThreadVector[index], NULL);
-    }
-
-    return 0;
-}
-
-
-
 

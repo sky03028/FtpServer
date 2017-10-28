@@ -38,8 +38,6 @@ enum SockIO_type_e{
 class SocketSource
 {
 public:
-    SocketSource();
-
     /* socket methods */
     static int SocketCreate();
 

@@ -4,153 +4,110 @@
 #include "utils.h"
 #include "ftpwarpper.h"
 
+extern "C" int fork();
+
 Service::Service() :
-		mServerSocket(-1), mAcceptTimeout(3 * 1000), mMaxConnectCount(10), mMaxThreadCount(
-				1), is_Service_exit(false) {
-	L = NULL;
-
-	assert((L = luaL_newstate()) != NULL);
-
-	luaL_openlibs(L);
-
-	//assert(0 == luaL_dofile(L, "./scripts/lua_main.lua"));
-
-	mSessionQueue.clear();
+    listen_socket_(-1), accecpt_timeout_(3 * 1000), max_connected_cnt_(10), max_thread_cnt_(
+        1), running_(true) {
 }
 
 Service::~Service() {
-	lua_close(L);
-
-	delete Threads;
 }
 
 void Service::FtpServiceStart(FtpSession ftpSession) {
-	int pid;
+  int pid;
 
-	pid = fork();
-	if (pid == -1) {
-		perror("fork");
-	} else if (pid == 0) {
-		std::cout << "Ftp Running." << std::endl;
-		FtpWarpper *ftpService;
+  pid = fork();
+  if (pid == -1) {
+    perror("fork");
+  } else if (pid == 0) {
+    std::cout << "Ftp Running." << std::endl;
+    FtpWarpper *ftpService;
+    ftpService = new FtpWarpper();
+    ftpService->ServiceStart(ftpSession);
+    delete ftpService;
 
-		ftpService = new FtpWarpper;
-		ftpService->ServiceStart(ftpSession);
-		delete ftpService;
-
-		exit (EXIT_SUCCESS);
-	} else if (pid > 0) {
-		std::cout << "Ftp Service Start." << std::endl;
-		return;
-	}
+    exit(EXIT_SUCCESS);
+  } else if (pid > 0) {
+    std::cout << "Ftp Service Start." << std::endl;
+    return;
+  }
 }
 
 void *Service::ServiceThreadHandler(void *arg) {
-	Service *service = (Service *) arg;
-	Session session;
-	FtpSession ftpsession;
+  Service *service = (Service *) arg;
 
-	ftpsession.SetRootPath("/home/xueda/share/ftpServer");
+  FtpSession ftpsession;
+  ftpsession.SetRootPath("/home/xueda/share/ftpServer");
+  do {
+    FtpSession ftpsession;
+    {
+      std::unique_lock<std::mutex> lock(mutex_);
+      cond_var_.wait(lock, [this] {return !service->sessions_.empty();});
+      ftpsession = service->sessions_.front();
+      service->sessions_.pop_front();
+    }
+    ftpsession.SetCurrentPath("/home/xueda/share/ftpServer");
+    FtpServiceStart(ftpsession);
+  } while (service->running_);
 
-	bool IsQueueEmpty = true;
-
-	do {
-
-		if (service->is_Service_exit)
-			break;
-
-		service->mThreadsMutex.lock();
-		IsQueueEmpty = service->mSessionQueue.empty();
-		if (!IsQueueEmpty) {
-			session = service->mSessionQueue.front();
-			service->mSessionQueue.pop_front();
-		}
-		service->mThreadsMutex.unlock();
-
-		if (IsQueueEmpty) {
-			Utils::ThreadSleep(50);
-			continue;
-		}
-
-		ftpsession = session;
-		ftpsession.SetCurrentPath("/home/xueda/share/ftpServer");
-		FtpServiceStart(ftpsession);
-
-	} while (1);
-
-	pthread_exit(NULL);
-
+  return nullptr;
 }
 
 void *Service::SeviceMonitor(void *arg) {
-	Service *service = (Service *) arg;
-	std::string command;
+  Service *service = (Service *) arg;
+  std::string command;
 
-	while (1) {
-		std::cin >> command;
-		if (command == "exit") {
-			break;
-		}
-	}
+  while (1) {
+    std::cin >> command;
+    if (command == "exit") {
+      break;
+    }
+  }
 
-	service->is_Service_exit = true;
+  service->running_ = false;
+  std::cout << "Monitor thread exit." << std::endl;
 
-	std::cout << "Monitor thread exit." << std::endl;
-
-	pthread_exit(NULL);
+  return nullptr;
 }
 
 int Service::ServiceInit() {
-	mServerSocket = SocketSource::TcpServerCreate(NULL, FTPSERVER_PORT);
+  listen_socket_ = SocketSource::TcpServerCreate(NULL, kFtpServicePort);
+  SocketSource::TcpListen(listen_socket_, max_connected_cnt_);
+  thread_pool_.reset(new ThreadPool());
+  thread_pool_->ThreadsCreate(Service::SeviceMonitor, (void *) this, 1);
+  thread_pool_->ThreadsCreate(Service::ServiceThreadHandler, (void *) this,
+      max_thread_cnt_);
 
-	SocketSource::TcpListen(mServerSocket, mMaxConnectCount);
-
-	Threads = new ThreadPool;
-
-	Threads->ThreadsCreate(Service::SeviceMonitor, (void *) this, 1);
-	Threads->ThreadsCreate(Service::ServiceThreadHandler, (void *) this,
-			mMaxThreadCount);
-
-	return 0;
+  return 0;
 }
 
 int Service::ServiceStart() {
-	struct sockaddr_in client;
-	int s;
-	Session session;
+  struct sockaddr_in client;
+  int sd;
+  Session session;
 
-	session.setServerListenSockfd(mServerSocket);
+  session.setServerListenSockfd(listen_socket_);
+  do {
+    sd = SocketSource::TcpAccept(listen_socket_, (struct sockaddr *) &client,
+        accecpt_timeout_);
+    if (sd >= 0) {
+      std::cout << "Get a client" << std::endl;
+      /* To the limit count, refuse connect */
+      if (sessions_.size() == max_connected_cnt_) {
+        SocketSource::SocketClose(s);
+        Utils::ThreadSleep(1000);
+      }
+      session.setClientSocketID(sd);
+      session.setClientIpAddress(client.sin_addr.s_addr);
+      session.setClientPort(client.sin_port);
+      std::lock_guard<std::mutex> lock(mutex_);
+      sessions_.push_back(session);
+    }
+  } while (running_);
+  SocketSource::SocketClose(listen_socket_);
+  thread_pool_->ThreadsAsyncJoin();
 
-	do {
-
-		if (is_Service_exit)
-			break;
-
-		s = SocketSource::TcpAccept(mServerSocket, (struct sockaddr *) &client,
-				mAcceptTimeout);
-		if (s >= 0) {
-			std::cout << "Get a client" << std::endl;
-
-			/* To the limit count, refuse connect */
-			if (mSessionQueue.size() == mMaxConnectCount) {
-				SocketSource::SocketClose(s);
-				Utils::ThreadSleep(1000);
-			}
-
-			session.setClientSocketID(s);
-			session.setClientIpAddress(client.sin_addr.s_addr);
-			session.setClientPort(client.sin_port);
-
-			mSessionQueue.push_back(session);
-
-		}
-
-	} while (1);
-
-	SocketSource::SocketClose(mServerSocket);
-
-	Threads->ThreadsAsyncJoin();
-
-	return 0;
+  return 0;
 }
 
