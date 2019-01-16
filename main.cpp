@@ -1,17 +1,18 @@
 #include <iostream>
-#include "ftpsession.h"
-#include "service.h"
-#include "ftpwarpper.h"
-#include "utils.h"
+
+#include "src/FtpService.h"
+#include "src/service/FtpSession.h"
+#include "src/service/FtpWarpper.h"
+#include "src/utils/Utils.h"
 
 int main() {
   std::cout << "Welcome to my FtpServer......" << std::endl;
 
-  Service *service = new Service();
+  FtpService *service = new FtpService();
 
-  service->ServiceInit();
+  service->Init();
 
-  service->ServiceStart();
+  service->Start();
 
   delete service;
 

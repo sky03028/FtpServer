@@ -1,9 +1,8 @@
 #ifndef FTPWARPPER_H
 #define FTPWARPPER_H
 
-#include <map>
+#include <unordered_map>
 #include <functional>
-#include "ftpsession.h"
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -11,7 +10,8 @@
 #include <signal.h>
 #include <string.h>
 #include <sys/wait.h>
-#include <CodeConverter.h>
+#include "utils/CodeConverter.h"
+#include "service/FtpSession.h"
 
 class FtpInstruction;
 
@@ -21,21 +21,20 @@ class FtpWarpper {
 
   ~FtpWarpper();
 
-  void CallBacksRegister();
-
-  void CallBacksUnRegister();
+  void RegisterCallback();
 
   int ServiceStart(FtpSession &session);
 
-  int MutiProcesserInit(FtpSession &session);
+  void MutiProcesserInit(FtpSession &session);
 
   int FTPControlHandler(FtpSession &session);
 
   int FTPProtocolParser(FtpSession &session, char *data);
 
-  int IPC_FTPControlHandler(FtpSession &session, FtpInstruction &__instruction);
+  void IPC_FTPControlHandler(FtpSession &session,
+                             FtpInstruction &__instruction);
 
-  int IPC_FTPTransferHandler(FtpSession &session);
+  void IPC_FTPTransferHandler(FtpSession &session);
 
   /* ftp-data transfer processer handler */
   int PASV_FtpTransferStandby(FtpSession &session,
@@ -54,55 +53,50 @@ class FtpWarpper {
 
   int WORK_FtpTryFileUpload(FtpSession &session, FtpInstruction &__instruction);
 
-  static int SignalSend();
+ private:
+  typedef std::function<int(FtpSession&, char *)> InstructionHandler;
 
-  static void SignalHandler(int, siginfo_t*, void*);
-
-  static int SignalRegister(void);
-
-  static int FtpReply(FtpSession &session, int code, std::string content);
+  int FtpReply(FtpSession &session, int code, std::string content);
 
   /* ftp command handler */
-  static int __FTP_CWD(FtpSession &session, char *context);
+  int __FTP_CWD(FtpSession &session, char *context);
 
-  static int __FTP_ABOR(FtpSession &session, char *context);
+  int __FTP_ABOR(FtpSession &session, char *context);
 
-  static int __FTP_LIST(FtpSession &session, char *context);
+  int __FTP_LIST(FtpSession &session, char *context);
 
-  static int __FTP_PASS(FtpSession &session, char *context);
+  int __FTP_PASS(FtpSession &session, char *context);
 
-  static int __FTP_PORT(FtpSession &session, char *context);
+  int __FTP_PORT(FtpSession &session, char *context);
 
-  static int __FTP_QUIT(FtpSession &session, char *context);
+  int __FTP_QUIT(FtpSession &session, char *context);
 
-  static int __FTP_RETR(FtpSession &session, char *context);
+  int __FTP_RETR(FtpSession &session, char *context);
 
-  static int __FTP_STOR(FtpSession &session, char *context);
+  int __FTP_STOR(FtpSession &session, char *context);
 
-  static int __FTP_SYST(FtpSession &session, char *context);
+  int __FTP_SYST(FtpSession &session, char *context);
 
-  static int __FTP_TYPE(FtpSession &session, char *context);
+  int __FTP_TYPE(FtpSession &session, char *context);
 
-  static int __FTP_USER(FtpSession &session, char *context);
+  int __FTP_USER(FtpSession &session, char *context);
 
-  static int __FTP_PASV(FtpSession &session, char *context);
+  int __FTP_PASV(FtpSession &session, char *context);
 
-  static int __FTP_FEAT(FtpSession &session, char *context);
+  int __FTP_FEAT(FtpSession &session, char *context);
 
-  static int __FTP_REST(FtpSession &session, char *context);
+  int __FTP_REST(FtpSession &session, char *context);
 
-  static int __FTP_PWD(FtpSession &session, char *context);
+  int __FTP_PWD(FtpSession &session, char *context);
 
-  static int __FTP_CDUP(FtpSession &session, char *context);
+  int __FTP_CDUP(FtpSession &session, char *context);
 
   /* IPC */
-  static int IPC_RecvInstruction(int __sockfrom, FtpInstruction &__instruction);
+  int IPC_RecvInstruction(int sockfrom, FtpInstruction &instruction);
 
-  static int IPC_SendInstruction(int __sockto, FtpInstruction &__instruction);
+  int IPC_SendInstruction(int sockto, FtpInstruction &instruction);
 
- private:
-  std::map<std::string, std::function<int(FtpSession&, char *)> > mProcessHandler;
-
+  std::unordered_map<std::string, InstructionHandler> handlers_;
 };
 
 class FtpInstruction {

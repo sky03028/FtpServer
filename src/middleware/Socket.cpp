@@ -1,14 +1,15 @@
-#include "socketsource.h"
-#include "utils.h"
 #include <iostream>
 #include <errno.h>
 #include <assert.h>
 #include <string.h>
+
+#include "Socket.h"
+#include "utils/Utils.h"
 #if defined(__linux__)
 #include <netdb.h>
 #endif
 
-int SocketSource::SetNonBlock(int sockfd) {
+int Socket::SetNonBlock(int sockfd) {
 
 #if defined(__linux__)
   int flag;
@@ -23,7 +24,7 @@ int SocketSource::SetNonBlock(int sockfd) {
 
 }
 
-int SocketSource::SetBlock(int sockfd) {
+int Socket::SetBlock(int sockfd) {
 #if defined(__linux__)
   int flag;
   flag = fcntl(sockfd, F_GETFD, 0);
@@ -37,7 +38,7 @@ int SocketSource::SetBlock(int sockfd) {
   return 0;
 }
 
-int SocketSource::SocketCreate() {
+int Socket::SocketCreate() {
   int sockfd;
 
 #if defined(__WIN32__)
@@ -57,7 +58,7 @@ int SocketSource::SocketCreate() {
   return sockfd;
 }
 
-int SocketSource::SocketClose(int sockfd) {
+int Socket::SocketClose(int sockfd) {
 
   if (sockfd >= 0) {
 #if defined(__WIN32__)
@@ -71,7 +72,7 @@ int SocketSource::SocketClose(int sockfd) {
 }
 
 /* get netif info */
-unsigned int SocketSource::GetLocalAddress() {
+unsigned int Socket::GetLocalAddress() {
   int sock_get_ip;
   unsigned int IpAddress = 0;
 
@@ -98,7 +99,7 @@ unsigned int SocketSource::GetLocalAddress() {
 
 }
 
-unsigned int SocketSource::Domain2IpAddress(const char *host) {
+unsigned int Socket::Domain2IpAddress(const char *host) {
   struct in_addr ipArray;
   unsigned int ipv4;
 
@@ -124,7 +125,7 @@ unsigned int SocketSource::Domain2IpAddress(const char *host) {
 
 }
 
-int SocketSource::CheckRecvBuffer(int sockfd) {
+int Socket::CheckRecvBuffer(int sockfd) {
   int nbytes = 0;
   unsigned char buffer[4096];
 
@@ -138,12 +139,12 @@ int SocketSource::CheckRecvBuffer(int sockfd) {
   return nbytes;
 }
 
-int SocketSource::IOMonitor(int *SockQueue, int QueueSize, int timeout,
+int Socket::IOMonitor(int *SockQueue, int QueueSize, int timeout,
                             int option, fd_set &optionfds) {
   struct timeval select_timeout;
   int result;
 
-  unsigned int timestamp = Utils::getCurrentTime();
+  unsigned long timestamp = Utils::getCurrentTime();
 
   if (timeout == 0) {
     timeout = 100;
@@ -155,8 +156,9 @@ int SocketSource::IOMonitor(int *SockQueue, int QueueSize, int timeout,
   select_timeout.tv_usec = 100 * 1000;
 
   while (1) {
-    if (Utils::getCurrentTime() - timestamp >= timeout)
+    if (Utils::getCurrentTime() - timestamp >= (unsigned long) timeout) {
       break;
+    }
 
     FD_ZERO(&optionfds);
     for (int index = 0; index < QueueSize; index++) {
@@ -192,7 +194,7 @@ int SocketSource::IOMonitor(int *SockQueue, int QueueSize, int timeout,
   return -1;
 }
 
-int SocketSource::CheckSockError(int sockfd) {
+int Socket::CheckSockError(int sockfd) {
   int result;
   int errcode = 0;
   socklen_t errsize = sizeof(errcode);
@@ -206,7 +208,7 @@ int SocketSource::CheckSockError(int sockfd) {
   return errcode;
 }
 
-int SocketSource::TcpServerCreate(const char *lhost, unsigned short lport) {
+int Socket::TcpServerCreate(const char *lhost, unsigned short lport) {
   int listenfd;
   struct sockaddr_in ServAddr;
 
@@ -251,20 +253,20 @@ int SocketSource::TcpServerCreate(const char *lhost, unsigned short lport) {
 
 }
 
-int SocketSource::TcpListen(int sockfd, int maxcnt) {
+int Socket::TcpListen(int sockfd, int maxcnt) {
   listen(sockfd, maxcnt);
 
   return 0;
 }
 
-int SocketSource::TcpAccept(int ServSocket, struct sockaddr *client,
+int Socket::TcpAccept(int ServSocket, struct sockaddr *client,
                             int timeout) {
   fd_set readfds;
   struct timeval select_timeout;
   int result;
   int client_sd;
   socklen_t socklen = sizeof(struct sockaddr);
-  unsigned int timestamp = Utils::getCurrentTime();
+  unsigned long timestamp = Utils::getCurrentTime();
 
   if (timeout == 0) {
     timeout = 500;
@@ -275,7 +277,7 @@ int SocketSource::TcpAccept(int ServSocket, struct sockaddr *client,
 
   do {
 
-    if (Utils::getCurrentTime() - timestamp >= timeout) {
+    if (Utils::getCurrentTime() - timestamp >= (unsigned long) timeout) {
       break;
     }
 
@@ -303,7 +305,7 @@ int SocketSource::TcpAccept(int ServSocket, struct sockaddr *client,
   return -1;
 }
 
-int SocketSource::TcpConnect(const char *host, unsigned short port,
+int Socket::TcpConnect(const char *host, unsigned short port,
                              int timeout) {
   if (host == NULL)
     return -1;
@@ -378,7 +380,7 @@ int SocketSource::TcpConnect(const char *host, unsigned short port,
   return -1;
 }
 
-int SocketSource::TcpRecv(int sockfd, unsigned char *data, int nbytes) {
+int Socket::TcpRecv(int sockfd, unsigned char *data, int nbytes) {
   int rbytes;
   int total_bytes = 0;
   unsigned char *pData = data;
@@ -409,7 +411,7 @@ int SocketSource::TcpRecv(int sockfd, unsigned char *data, int nbytes) {
   return total_bytes;
 }
 
-int SocketSource::TcpSend(int sockfd, unsigned char *data, int nbytes) {
+int Socket::TcpSend(int sockfd, unsigned char *data, int nbytes) {
   int wbytes;
   int total_bytes = 0;
   unsigned char *pData = data;
@@ -435,7 +437,7 @@ int SocketSource::TcpSend(int sockfd, unsigned char *data, int nbytes) {
   return total_bytes;
 }
 
-int SocketSource::TcpReadOneLine(int sockfd, char *data, int maxsize) {
+int Socket::TcpReadLine(int sockfd, char *data, int maxsize) {
   int rbytes;
   int total_bytes = 0;
   char *pData = data;
@@ -468,7 +470,7 @@ int SocketSource::TcpReadOneLine(int sockfd, char *data, int maxsize) {
   return -1;
 }
 
-int SocketSource::UdpObjectCreate(const char *lhost, int lport) {
+int Socket::UdpObjectCreate(const char *lhost, int lport) {
   int opt = 1;
   int udp_sd;
   int ipv4;
@@ -499,7 +501,7 @@ int SocketSource::UdpObjectCreate(const char *lhost, int lport) {
   return udp_sd;
 }
 
-int SocketSource::UdpRecv(int sockfd, sockaddr *from, unsigned char *data,
+int Socket::UdpRecv(int sockfd, sockaddr *from, unsigned char *data,
                           int nbytes) {
   int rbytes;
   int total_bytes = 0;
@@ -533,7 +535,7 @@ int SocketSource::UdpRecv(int sockfd, sockaddr *from, unsigned char *data,
   return -1;
 }
 
-int SocketSource::UdpSend(int sockfd, sockaddr *dest, unsigned char *data,
+int Socket::UdpSend(int sockfd, sockaddr *dest, unsigned char *data,
                           int nbytes) {
   int wbytes;
   int total_bytes = 0;

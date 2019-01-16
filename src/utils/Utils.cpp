@@ -1,5 +1,6 @@
-#include "utils.h"
 #include <sys/time.h>
+
+#include "Utils.h"
 #if defined(__WIN32__)
 #include <windows.h>
 #elif defined(__linux__)
@@ -13,11 +14,7 @@
 #include <string.h>
 #include "CodeConverter.h"
 
-Utils::Utils() {
-
-}
-
-unsigned int Utils::getCurrentTime() {
+unsigned long Utils::getCurrentTime() {
   struct timeval tv;
   gettimeofday(&tv, NULL);
   return (tv.tv_sec * 1000 + tv.tv_usec / 1000);
@@ -31,28 +28,29 @@ void Utils::ThreadSleep(unsigned int delay_usec) {
 #endif
 }
 
-std::string Utils::DeleteSpace(std::string &__before) {
+const std::string Utils::DeleteSpace(const std::string &src) {
   int begin;
 
-  while (-1 != (begin = __before.find(" "))) {
-    __before.replace(begin, 1, "");
+  std::string dst(src);
+  while (-1 != (begin = src.find(" "))) {
+    dst.replace(begin, 1, "");
   }
 
-  return __before;
+  return src;
 }
 
-std::string Utils::DeleteCRLF(std::string &__before) {
+const std::string Utils::DeleteCRLF(const std::string &src) {
   int begin;
 
-  while (-1 != (begin = __before.find('\r'))
-      || -1 != (begin = __before.find('\n'))) {
-    __before.replace(begin, 1, "");
+  std::string dst(src);
+  while (-1 != (begin = src.find('\r')) || -1 != (begin = src.find('\n'))) {
+    dst.replace(begin, 1, "");
   }
 
-  return __before;
+  return src;
 }
 
-std::string Utils::GetFilePermission(struct stat &doc) {
+const std::string Utils::GetFilePermission(const struct stat& doc) {
   char perms[] = "----------";
   perms[0] = '?';
 
@@ -122,7 +120,7 @@ std::string Utils::GetFilePermission(struct stat &doc) {
   return std::string(perms);
 }
 
-std::string Utils::GetFileInfo(struct stat &doc) {
+const std::string Utils::GetFileInfo(const struct stat &doc) {
   std::string content;
 
   char datebuf[64] = { 0 };
@@ -147,43 +145,43 @@ std::string Utils::GetFileInfo(struct stat &doc) {
   return content;
 }
 
-int Utils::GetFileAttribute(std::string &__path, struct stat *__fileStat) {
+const int Utils::GetFileAttribute(const std::string &path,
+                                  struct stat *fileStat) {
   char out[CONVEROUTLEN];
 
   memset(out, 0, sizeof(out));
   CodeConverter cc = CodeConverter("gb2312", "utf-8");
-  cc.convert((char *) __path.c_str(), strlen(__path.c_str()), out,
+  cc.convert((char *) path.c_str(), strlen(path.c_str()), out,
   CONVEROUTLEN);
 
-  __path = std::string(out);
+  std::cout << "filePath : " << out << std::endl;
 
-  std::cout << "filePath : " << __path << std::endl;
-
-  if (-1 == stat(__path.c_str(), __fileStat))
+  if (-1 == stat(out, fileStat)) {
     return -1;
+  }
 
   return 0;
 }
 
-std::string Utils::GetListString(std::string __currentPath) {
+const std::string Utils::GetListString(const std::string& path) {
   struct stat doc;
   struct dirent * pDocument;
 
-  std::string ReplyContent;
+  std::string reply_content;
   std::string content;
 
-  ReplyContent.clear();
+  reply_content.clear();
   content.clear();
 
   std::string docPath;
 
-  DIR *dir = opendir(__currentPath.c_str());
+  DIR *dir = opendir(path.c_str());
   while ((pDocument = readdir(dir)) != NULL) {
     if (strcmp(pDocument->d_name, ".") == 0
         && strcmp(pDocument->d_name, "..") == 0)
       continue;
 
-    docPath = __currentPath + std::string(pDocument->d_name);
+    docPath = path + std::string(pDocument->d_name);
     //if(lstat(pDocument->d_name, &doc) == -1)
     //    break;
 
@@ -193,17 +191,16 @@ std::string Utils::GetListString(std::string __currentPath) {
     content = GetFilePermission(doc) + " 1 root  root ";
     content += GetFileInfo(doc);
     content += std::string(pDocument->d_name) + "\r\n";
-    ReplyContent += content;
+    reply_content += content;
   }
 
   closedir(dir);
 
-  return ReplyContent;
+  return reply_content;
 }
 
-int Utils::GetMaxValue(int *numberList, int listSize) {
+const int Utils::GetMaxValue(const int *numberList, const int listSize) {
   int maxValue = 0;
-
   for (int index = 0; index < listSize; index++) {
     if (maxValue < numberList[index]) {
       maxValue = numberList[index];
@@ -214,54 +211,51 @@ int Utils::GetMaxValue(int *numberList, int listSize) {
 }
 
 /* 获取上一层目录路径 */
-std::string Utils::GetLastDirPath(std::string CurrentPath) {
-  int pos;
-
+const std::string Utils::GetLastDirPath(const std::string& src_path) {
   std::vector<int> symbolList;
 
   symbolList.clear();
 
-  if (CurrentPath != "/" && CurrentPath != "./" && CurrentPath != "") {
-    for (int index = 0; index < CurrentPath.size(); index++) {
-      pos = CurrentPath.find('/', index);
+  std::string dst_path(src_path);
+  if (dst_path != "/" && dst_path != "./" && dst_path != "") {
+    for (unsigned int index = 0; index < dst_path.size(); index++) {
+      const auto pos = dst_path.find('/', index);
       if (pos == std::string::npos)
         continue;
       symbolList.push_back(pos);
       index = pos;
     }
 
-    if (CurrentPath.at(CurrentPath.size() - 1) != '/') {
-      CurrentPath.replace(symbolList.at(symbolList.size() - 1),
-                          CurrentPath.size() - 1, "");
+    if (dst_path.at(dst_path.size() - 1) != '/') {
+      dst_path.replace(symbolList.at(symbolList.size() - 1),
+                       dst_path.size() - 1, "");
     } else {
-      CurrentPath.replace(symbolList.at(symbolList.size() - 2),
-                          CurrentPath.size() - 1, "");
+      dst_path.replace(symbolList.at(symbolList.size() - 2),
+                       dst_path.size() - 1, "");
     }
   }
 
-  return CurrentPath;
+  return dst_path;
 }
 
-int Utils::CheckSymbolExsit(std::string OriginString, char symbol) {
-  for (int index = 0; index < OriginString.size(); index++) {
-    if (OriginString.at(index) == symbol)
+const int Utils::CheckSymbolExsit(const std::string& origin, char symbol) {
+  for (unsigned int index = 0; index < origin.size(); index++) {
+    if (origin.at(index) == symbol)
       return 0;
   }
 
   return -1;
 }
 
-std::string Utils::GetConvString(const char *from_type, const char *to_type,
-                                 std::string str) {
+const std::string Utils::GetConvString(const char *from_type,
+                                       const char *to_type,
+                                       const std::string& str) {
   char out[CONVEROUTLEN];
 
   memset(out, 0, sizeof(out));
-
   CodeConverter cc = CodeConverter(from_type, to_type);
   cc.convert((char *) str.c_str(), strlen(str.c_str()), out, CONVEROUTLEN);
 
-  str = std::string(out);
-
-  return str;
+  return std::string(out);
 }
 

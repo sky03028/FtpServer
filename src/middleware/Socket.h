@@ -5,7 +5,7 @@
  only for nonblock
  */
 
-#include "session.h"
+#include "core/Session.h"
 
 #if defined(__WIN32__)
 #include <winsock2.h>
@@ -31,7 +31,7 @@ enum SockIO_type_e {
   EXCEPTFDS_TYPE,
 };
 
-class SocketSource {
+class Socket {
  public:
   /* socket methods */
   static int SocketCreate();
@@ -69,7 +69,7 @@ class SocketSource {
 
   static int TcpSend(int sockfd, unsigned char *data, int nbytes);
 
-  static int TcpReadOneLine(int sockfd, char *data, int maxsize);
+  static int TcpReadLine(int sockfd, char *data, int maxsize);
 
   /* UDP */
   static int UdpObjectCreate(const char *lhost, int lport);

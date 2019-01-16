@@ -2,13 +2,14 @@ CC = g++
 PWD = $(shell pwd)
 
 TARGET = ftpserver
-CFLAGS = -I$(PWD) -I$(PWD)/FtpService -std=c++11 -g -Wall
-SRC := $(shell find . -name "*.cpp")
-LIBS = 
+CFLAGS = -std=c++11 -g -Wall
+INCLUDES = -I./src -I./include
+SRCS := $(shell find . -name "*.cpp")
+LIBS = -pthread 
 LOG := log
 
-$(TARGET) : $(SRC) 
-	$(CC) $(CFLAGS) $^ -o $@ 2>$(LOG) $(LIBS)
+$(TARGET) : $(SRCS) 
+	$(CC) $(CFLAGS) $^ $(LIBS) $(INCLUDES) -o $@ 2>$(LOG)
 	@echo "Build success..."
 
 .PHONY : clean
