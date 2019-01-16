@@ -6,9 +6,12 @@
 
 extern "C" int fork();
 
-Service::Service() :
-    listen_socket_(-1), accecpt_timeout_(3 * 1000), max_connected_cnt_(10), max_thread_cnt_(
-        1), running_(true) {
+Service::Service()
+    : listen_socket_(-1),
+      accecpt_timeout_(3 * 1000),
+      max_connected_cnt_(10),
+      max_thread_cnt_(1),
+      running_(true) {
 }
 
 Service::~Service() {
@@ -77,7 +80,7 @@ int Service::ServiceInit() {
   thread_pool_.reset(new ThreadPool());
   thread_pool_->ThreadsCreate(Service::SeviceMonitor, (void *) this, 1);
   thread_pool_->ThreadsCreate(Service::ServiceThreadHandler, (void *) this,
-      max_thread_cnt_);
+                              max_thread_cnt_);
 
   return 0;
 }
@@ -90,12 +93,12 @@ int Service::ServiceStart() {
   session.setServerListenSockfd(listen_socket_);
   do {
     sd = SocketSource::TcpAccept(listen_socket_, (struct sockaddr *) &client,
-        accecpt_timeout_);
+                                 accecpt_timeout_);
     if (sd >= 0) {
       std::cout << "Get a client" << std::endl;
       /* To the limit count, refuse connect */
       if (sessions_.size() == max_connected_cnt_) {
-        SocketSource::SocketClose(s);
+        SocketSource::SocketClose (s);
         Utils::ThreadSleep(1000);
       }
       session.setClientSocketID(sd);

@@ -59,27 +59,27 @@ std::string Utils::GetFilePermission(struct stat &doc) {
   mode_t mode = doc.st_mode;
 
   switch (mode & S_IFMT) {
-  case S_IFREG:
-    perms[0] = '-';
-    break;
-  case S_IFDIR:
-    perms[0] = 'd';
-    break;
-  case S_IFLNK:
-    perms[0] = 'l';
-    break;
-  case S_IFIFO:
-    perms[0] = 'p';
-    break;
-  case S_IFSOCK:
-    perms[0] = 's';
-    break;
-  case S_IFCHR:
-    perms[0] = 'c';
-    break;
-  case S_IFBLK:
-    perms[0] = 'b';
-    break;
+    case S_IFREG:
+      perms[0] = '-';
+      break;
+    case S_IFDIR:
+      perms[0] = 'd';
+      break;
+    case S_IFLNK:
+      perms[0] = 'l';
+      break;
+    case S_IFIFO:
+      perms[0] = 'p';
+      break;
+    case S_IFSOCK:
+      perms[0] = 's';
+      break;
+    case S_IFCHR:
+      perms[0] = 'c';
+      break;
+    case S_IFBLK:
+      perms[0] = 'b';
+      break;
   }
 
   if (mode & S_IRUSR) {
@@ -153,7 +153,7 @@ int Utils::GetFileAttribute(std::string &__path, struct stat *__fileStat) {
   memset(out, 0, sizeof(out));
   CodeConverter cc = CodeConverter("gb2312", "utf-8");
   cc.convert((char *) __path.c_str(), strlen(__path.c_str()), out,
-      CONVEROUTLEN);
+  CONVEROUTLEN);
 
   __path = std::string(out);
 
@@ -232,10 +232,10 @@ std::string Utils::GetLastDirPath(std::string CurrentPath) {
 
     if (CurrentPath.at(CurrentPath.size() - 1) != '/') {
       CurrentPath.replace(symbolList.at(symbolList.size() - 1),
-          CurrentPath.size() - 1, "");
+                          CurrentPath.size() - 1, "");
     } else {
       CurrentPath.replace(symbolList.at(symbolList.size() - 2),
-          CurrentPath.size() - 1, "");
+                          CurrentPath.size() - 1, "");
     }
   }
 
@@ -252,7 +252,7 @@ int Utils::CheckSymbolExsit(std::string OriginString, char symbol) {
 }
 
 std::string Utils::GetConvString(const char *from_type, const char *to_type,
-    std::string str) {
+                                 std::string str) {
   char out[CONVEROUTLEN];
 
   memset(out, 0, sizeof(out));

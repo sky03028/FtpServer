@@ -11,7 +11,7 @@
 #endif
 
 class Session {
-public:
+ public:
   Session();
   ~Session();
 #if 0
@@ -80,7 +80,7 @@ public:
     return mutex_;
   }
 
-private:
+ private:
 
   int mClientSockfd;
   unsigned int mClientIpAddress;

@@ -15,7 +15,7 @@ int SocketSource::SetNonBlock(int sockfd) {
   flag = fcntl(sockfd, F_GETFD, 0);
   fcntl(sockfd, F_SETFD, flag | O_NONBLOCK);
 #elif defined(__WIN32__)
-  int ioMode = 1; //0 block, 1 nonblock
+  int ioMode = 1;  //0 block, 1 nonblock
   ioctlsocket(sockfd, FIONBIO, (u_long FAR*) &ioMode);
 #endif
 
@@ -30,7 +30,7 @@ int SocketSource::SetBlock(int sockfd) {
   flag &= ~O_NONBLOCK;
   fcntl(sockfd, F_SETFD, flag);
 #elif defined(__WIN32__)
-  int ioMode = 0; //0 block, 1 nonblock
+  int ioMode = 0;  //0 block, 1 nonblock
   ioctlsocket(sockfd, FIONBIO, (u_long FAR*) &ioMode);
 #endif
 
@@ -139,7 +139,7 @@ int SocketSource::CheckRecvBuffer(int sockfd) {
 }
 
 int SocketSource::IOMonitor(int *SockQueue, int QueueSize, int timeout,
-    int option, fd_set &optionfds) {
+                            int option, fd_set &optionfds) {
   struct timeval select_timeout;
   int result;
 
@@ -164,21 +164,21 @@ int SocketSource::IOMonitor(int *SockQueue, int QueueSize, int timeout,
     }
 
     switch (option) {
-    case READFDS_TYPE:
-      result = select(maxfds, &optionfds, NULL, NULL, &select_timeout);
-      break;
+      case READFDS_TYPE:
+        result = select(maxfds, &optionfds, NULL, NULL, &select_timeout);
+        break;
 
-    case WRITEFDS_TYPE:
-      result = select(maxfds, NULL, &optionfds, NULL, &select_timeout);
-      break;
+      case WRITEFDS_TYPE:
+        result = select(maxfds, NULL, &optionfds, NULL, &select_timeout);
+        break;
 
-    case EXCEPTFDS_TYPE:
-      result = select(maxfds, NULL, NULL, &optionfds, &select_timeout);
-      break;
+      case EXCEPTFDS_TYPE:
+        result = select(maxfds, NULL, NULL, &optionfds, &select_timeout);
+        break;
 
-    default:
-      result = select(maxfds, &optionfds, NULL, NULL, &select_timeout);
-      break;
+      default:
+        result = select(maxfds, &optionfds, NULL, NULL, &select_timeout);
+        break;
     }
 
     if (result > 0) {
@@ -241,11 +241,11 @@ int SocketSource::TcpServerCreate(const char *lhost, unsigned short lport) {
   int opt = 1;
   /* re-use port */
   setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, (const char *) &opt,
-      sizeof(opt));
+             sizeof(opt));
   assert(
       0
           == bind(listenfd, (struct sockaddr * )&ServAddr,
-              sizeof(struct sockaddr)));
+                  sizeof(struct sockaddr)));
 
   return listenfd;
 
@@ -258,7 +258,7 @@ int SocketSource::TcpListen(int sockfd, int maxcnt) {
 }
 
 int SocketSource::TcpAccept(int ServSocket, struct sockaddr *client,
-    int timeout) {
+                            int timeout) {
   fd_set readfds;
   struct timeval select_timeout;
   int result;
@@ -304,7 +304,7 @@ int SocketSource::TcpAccept(int ServSocket, struct sockaddr *client,
 }
 
 int SocketSource::TcpConnect(const char *host, unsigned short port,
-    int timeout) {
+                             int timeout) {
   if (host == NULL)
     return -1;
 
@@ -349,7 +349,7 @@ int SocketSource::TcpConnect(const char *host, unsigned short port,
 
     if (0
         == connect(sockfd, (struct sockaddr *) &remote,
-            sizeof(struct sockaddr))) {
+                   sizeof(struct sockaddr))) {
       std::cout << "Connect ok. sockfd = " << sockfd << std::endl;
       is_connect_ok = true;
       break;
@@ -500,7 +500,7 @@ int SocketSource::UdpObjectCreate(const char *lhost, int lport) {
 }
 
 int SocketSource::UdpRecv(int sockfd, sockaddr *from, unsigned char *data,
-    int nbytes) {
+                          int nbytes) {
   int rbytes;
   int total_bytes = 0;
   socklen_t socklen = sizeof(struct sockaddr);
@@ -509,7 +509,7 @@ int SocketSource::UdpRecv(int sockfd, sockaddr *from, unsigned char *data,
   do {
 
     rbytes = recvfrom(sockfd, (char *) pData, nbytes - total_bytes, 0, from,
-        &socklen);
+                      &socklen);
     if (rbytes == 0) {
       return 0;
     } else if (rbytes == -1) {
@@ -534,7 +534,7 @@ int SocketSource::UdpRecv(int sockfd, sockaddr *from, unsigned char *data,
 }
 
 int SocketSource::UdpSend(int sockfd, sockaddr *dest, unsigned char *data,
-    int nbytes) {
+                          int nbytes) {
   int wbytes;
   int total_bytes = 0;
   int socklen = sizeof(struct sockaddr);
@@ -543,7 +543,7 @@ int SocketSource::UdpSend(int sockfd, sockaddr *dest, unsigned char *data,
   do {
 
     wbytes = sendto(sockfd, (char *) pData, nbytes - total_bytes, 0, dest,
-        socklen);
+                    socklen);
     if (wbytes == -1 && errno == EINTR)
       continue;
 

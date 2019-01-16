@@ -10,7 +10,7 @@
 #include "ftpsession.h"
 
 class Service {
-public:
+ public:
   Service();
   ~Service();
 
@@ -21,7 +21,7 @@ public:
   static void *SeviceMonitor(void *arg);
   static void FtpServiceStart(FtpSession ftpSession);
 
-private:
+ private:
   int listen_socket_;
   int accecpt_timeout_;
   int max_connected_cnt_;

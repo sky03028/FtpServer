@@ -1,10 +1,22 @@
 #include "ftpsession.h"
 
-FtpSession::FtpSession() :
-    mTransSockfd(-1), mTransPort(0), PORTConnectPort(0), mTransIpAddress(0), mCtrlIpAddress(
-        0), mCtrlSockfd(-1), mCtrlPort(0), PASVListenSock(-1), PASVListenPort(
-        0), PORTConnectSock(-1), PORTConnectPort(0), mTransmode(0), FtpDataAbortFlag(false),
-        IPC_FTPCTRLFD(0), IPC_FTPDATAFD(0), mSendInterval(0) {
+FtpSession::FtpSession()
+    : mTransSockfd(-1),
+      mTransPort(0),
+      PORTConnectPort(0),
+      mTransIpAddress(0),
+      mCtrlIpAddress(0),
+      mCtrlSockfd(-1),
+      mCtrlPort(0),
+      PASVListenSock(-1),
+      PASVListenPort(0),
+      PORTConnectSock(-1),
+      PORTConnectPort(0),
+      mTransmode(0),
+      FtpDataAbortFlag(false),
+      IPC_FTPCTRLFD(0),
+      IPC_FTPDATAFD(0),
+      mSendInterval(0) {
   mDirPath = "/";
 }
 

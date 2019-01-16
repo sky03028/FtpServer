@@ -9,7 +9,7 @@ ThreadPool::~ThreadPool() {
 }
 
 int ThreadPool::ThreadsCreate(void *(*func)(void *), void *args,
-    int thread_maxcnt) {
+                              int thread_maxcnt) {
   for (int index = 0; index < thread_maxcnt; index++) {
     std::thread* thread = new std::thread(func);
     assert(thread != nullptr);

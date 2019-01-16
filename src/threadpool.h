@@ -5,14 +5,14 @@
 #include <thread>
 
 class ThreadPool {
-public:
+ public:
   ThreadPool();
   ~ThreadPool();
 
   int ThreadsCreate(void *(*func)(void *), void *args, int thread_maxcnt);
   int ThreadsAsyncJoin();
 
-private:
+ private:
   std::vector<std::thread*> threads_;
 
 };

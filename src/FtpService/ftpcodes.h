@@ -76,5 +76,4 @@
 #define FTP_NOPERM            550
 #define FTP_UPLOADFAIL        553
 
-
 #endif /* _FTP_CODES_H_ */

@@ -4,18 +4,17 @@
 #include "ftpwarpper.h"
 #include "utils.h"
 
-int main()
-{
-    std::cout << "Welcome to my FtpServer......" << std::endl;
+int main() {
+  std::cout << "Welcome to my FtpServer......" << std::endl;
 
-    Service *service = new Service();
+  Service *service = new Service();
 
-    service->ServiceInit();
+  service->ServiceInit();
 
-    service->ServiceStart();
+  service->ServiceStart();
 
-    delete service;
+  delete service;
 
-    return 0;
+  return 0;
 }
 

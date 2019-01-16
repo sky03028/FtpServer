@@ -79,13 +79,14 @@ int FtpWarpper::FtpReply(FtpSession &session, int code, std::string content) {
 
   if (PackedContent.size() > 0) {
     return SocketSource::TcpSend(session.GetControlSocket(),
-        (unsigned char *) PackedContent.c_str(), PackedContent.size());
+                                 (unsigned char *) PackedContent.c_str(),
+                                 PackedContent.size());
   }
 }
 
 /* IPC operation */
 int FtpWarpper::IPC_RecvInstruction(int __sockfrom,
-    FtpInstruction &__instruction) {
+                                    FtpInstruction &__instruction) {
   unsigned char *pInstruction = (unsigned char *) &__instruction;
 
   memset(pInstruction, 0, sizeof(__instruction));
@@ -95,7 +96,7 @@ int FtpWarpper::IPC_RecvInstruction(int __sockfrom,
 }
 
 int FtpWarpper::IPC_SendInstruction(int __sockto,
-    FtpInstruction &__instruction) {
+                                    FtpInstruction &__instruction) {
   unsigned char *pInstruction = (unsigned char *) &__instruction;
 
   return SocketSource::TcpSend(__sockto, pInstruction, sizeof(__instruction));
@@ -103,7 +104,7 @@ int FtpWarpper::IPC_SendInstruction(int __sockto,
 
 /* ftp-data processer handler */
 int FtpWarpper::PASV_FtpTransferStandby(FtpSession &session,
-    FtpInstruction &__instruction) {
+                                        FtpInstruction &__instruction) {
   int ListenSock;
   struct in_addr ip_addr;
   std::string ReplyContent;
@@ -145,7 +146,7 @@ int FtpWarpper::PASV_FtpTransferStandby(FtpSession &session,
     session.SetTransferPort(port);
 
     __instruction.setInsContent((char *) ReplyContent.c_str(),
-        ReplyContent.size());
+                                ReplyContent.size());
     __instruction.setInsExecFlag(true);
     __instruction.setInsContentLength(ReplyContent.size());
 
@@ -157,7 +158,7 @@ int FtpWarpper::PASV_FtpTransferStandby(FtpSession &session,
 }
 
 int FtpWarpper::PORT_FtpTransferStandby(FtpSession &session,
-    FtpInstruction &__instruction) {
+                                        FtpInstruction &__instruction) {
   unsigned short __port = 0;
   unsigned int __ipaddress = 0;
 
@@ -169,8 +170,8 @@ int FtpWarpper::PORT_FtpTransferStandby(FtpSession &session,
   RequsetContent = Utils::DeleteSpace(RequsetContent);
 
   std::sscanf(RequsetContent.c_str(), "%d,%d,%d,%d,%d,%d", &p_ipaddress[0],
-      &p_ipaddress[1], &p_ipaddress[2], &p_ipaddress[3], &p_port[0],
-      &p_port[1]);
+              &p_ipaddress[1], &p_ipaddress[2], &p_ipaddress[3], &p_port[0],
+              &p_port[1]);
 
   __port = p_port[0] | p_port[1] << 8;
 
@@ -189,7 +190,7 @@ int FtpWarpper::PORT_FtpTransferStandby(FtpSession &session,
   __instruction.setInsType(TRANSFER_PORT_STANDBY_RES);
   __instruction.setInsExecFlag(true);
   __instruction.setInsContent((char *) ReplyContent.c_str(),
-      ReplyContent.size());
+                              ReplyContent.size());
   __instruction.setInsContentLength(ReplyContent.size());
 
   session.SetTransferMode(PORT_MODE_ENABLE);
@@ -198,11 +199,12 @@ int FtpWarpper::PORT_FtpTransferStandby(FtpSession &session,
 }
 
 int FtpWarpper::WORK_FtpTrySendCommand(FtpSession &session,
-    FtpInstruction &__instruction) {
+                                       FtpInstruction &__instruction) {
   int result = 0;
 
   if (-1 != session.GetTransferSocket()) {
-    result = SocketSource::TcpSend(session.GetTransferSocket(),
+    result = SocketSource::TcpSend(
+        session.GetTransferSocket(),
         (unsigned char *) __instruction.getInsContent(),
         __instruction.getInsContentLength());
   }
@@ -220,7 +222,7 @@ int FtpWarpper::WORK_FtpTrySendCommand(FtpSession &session,
   if (result > 0) {
     __instruction.setInsExecFlag(true);
     __instruction.setInsContent("Transfer complete.",
-        strlen("Transfer complete."));
+                                strlen("Transfer complete."));
     __instruction.setInsContentLength(strlen("Transfer complete."));
   } else {
     __instruction.setInsExecFlag(false);
@@ -231,7 +233,7 @@ int FtpWarpper::WORK_FtpTrySendCommand(FtpSession &session,
 }
 
 int FtpWarpper::WORK_FtpTryContact(FtpSession &session,
-    FtpInstruction &__instruction) {
+                                   FtpInstruction &__instruction) {
   int result;
 
   struct sockaddr_in remote;
@@ -242,22 +244,22 @@ int FtpWarpper::WORK_FtpTryContact(FtpSession &session,
 
   std::cout << __FUNCTION__ << " ip_addr = " << ip_addr.s_addr << std::endl;
   std::cout << __FUNCTION__ << " inet_ntoa(ip_addr) = " << inet_ntoa(ip_addr)
-      << std::endl;
+            << std::endl;
   std::cout << __FUNCTION__ << " session.GetTransferPort() = "
-      << ntohs(session.GetTransferPort()) << std::endl;
+            << ntohs(session.GetTransferPort()) << std::endl;
 
   switch (session.GetTransferMode()) {
-  case PASV_MODE_ENABLE: {
-    result = SocketSource::TcpAccept(session.PASVListenSock,
-        (struct sockaddr *) &remote, 3 * 1000);
-  }
-    break;
+    case PASV_MODE_ENABLE: {
+      result = SocketSource::TcpAccept(session.PASVListenSock,
+                                       (struct sockaddr *) &remote, 3 * 1000);
+    }
+      break;
 
-  case PORT_MODE_ENABLE: {
-    result = SocketSource::TcpConnect(inet_ntoa(ip_addr),
-        session.GetTransferPort(), 3 * 1000);
-  }
-    break;
+    case PORT_MODE_ENABLE: {
+      result = SocketSource::TcpConnect(inet_ntoa(ip_addr),
+                                        session.GetTransferPort(), 3 * 1000);
+    }
+      break;
   }
 
   __instruction.clear();
@@ -279,7 +281,7 @@ int FtpWarpper::WORK_FtpTryContact(FtpSession &session,
 }
 
 int FtpWarpper::WORK_FtpTryFileDownload(FtpSession &session,
-    FtpInstruction &__instruction) {
+                                        FtpInstruction &__instruction) {
   int result;
   int nbytes;
   int totalBytes = 0;
@@ -338,7 +340,7 @@ int FtpWarpper::WORK_FtpTryFileDownload(FtpSession &session,
       }
 
       result = SocketSource::IOMonitor(&TransferSocket, 1, 100, WRITEFDS_TYPE,
-          fds);
+                                       fds);
       if (result > 0) {
         if (FD_ISSET(TransferSocket, &fds)) {
           //std::cout << "Totalbytes = " << totalBytes << std::endl;
@@ -349,7 +351,7 @@ int FtpWarpper::WORK_FtpTryFileDownload(FtpSession &session,
 
           /* File stream : Server send to client */
           nbytes = sendfile(session.GetTransferSocket(), fileSocket, NULL,
-              nbytes);
+                            nbytes);
           if (nbytes > 0) {
             totalBytes += nbytes;
             continue;
@@ -358,7 +360,7 @@ int FtpWarpper::WORK_FtpTryFileDownload(FtpSession &session,
             if (result != 0) {
               if (result == EINTR)
                 continue;
-              else if (result == EAGAIN) //no data read, means sendfile get (EOF)
+              else if (result == EAGAIN)  //no data read, means sendfile get (EOF)
               {
                 __instruction.setInsExecFlag(true);
                 std::cout << "Download : Transfer ok." << std::endl;
@@ -396,7 +398,7 @@ int FtpWarpper::WORK_FtpTryFileDownload(FtpSession &session,
 }
 
 int FtpWarpper::WORK_FtpTryFileUpload(FtpSession &session,
-    FtpInstruction &__instruction) {
+                                      FtpInstruction &__instruction) {
   int result;
   int fileSocket;
   std::string __filepath;
@@ -416,7 +418,7 @@ int FtpWarpper::WORK_FtpTryFileUpload(FtpSession &session,
 
   CodeConverter cc = CodeConverter("gb2312", "utf-8");
   cc.convert((char *) __filepath.c_str(), strlen(__filepath.c_str()), out,
-      CONVEROUTLEN);
+  CONVEROUTLEN);
 
   __filepath = std::string(out);
 
@@ -449,12 +451,12 @@ int FtpWarpper::WORK_FtpTryFileUpload(FtpSession &session,
       }
 
       result = SocketSource::IOMonitor(&TransferSocket, 1, 100, WRITEFDS_TYPE,
-          fds);
+                                       fds);
       if (result > 0) {
         if (FD_ISSET(TransferSocket, &fds)) {
           /* File stream : client send to server */
           result = sendfile(fileSocket, session.GetTransferSocket(), NULL,
-              nbytes);
+                            nbytes);
           if (result > 0) {
             std::cout << "upload : result = " << result << std::endl;
             TotalBytes += result;
@@ -515,7 +517,7 @@ int FtpWarpper::__FTP_CWD(FtpSession &session, char *context) {
   CodeConverter cc("GB2312", "UTF-8");
 
   cc.convert((char *) __ftpPath.c_str(), strlen(__ftpPath.c_str()), out,
-      CONVEROUTLEN);
+  CONVEROUTLEN);
 
   __ftpPath = std::string(out);
 
@@ -579,7 +581,7 @@ int FtpWarpper::__FTP_LIST(FtpSession &session, char *context) {
 
   IPC_SendInstruction(session.GetIPCContorlFD(), instruction);
   FtpReply(session, FTP_DATACONN,
-      std::string("Opening ASCII mode data connection for /bin/ls"));
+           std::string("Opening ASCII mode data connection for /bin/ls"));
 
   /* 2. try to send command back to client */
   std::string filePath;
@@ -796,11 +798,11 @@ int FtpWarpper::__FTP_CDUP(FtpSession &session, char *context) {
 }
 
 void FtpWarpper::SignalHandler(int __signalNo, siginfo_t* __signalInfo,
-    void* __content) {
+                               void* __content) {
   if (__signalNo == SIGUSR1) {
     switch (2) {
-    case 1:
-      break;
+      case 1:
+        break;
     }
   }
 }
@@ -809,7 +811,7 @@ int FtpWarpper::SignalRegister() {
   struct sigaction act;
   act.sa_sigaction = SignalHandler;
   sigemptyset(&act.sa_mask);  //清空信号集
-  act.sa_flags = SA_SIGINFO; //带参数signal
+  act.sa_flags = SA_SIGINFO;  //带参数signal
 
   if (sigaction(SIGINT, &act, NULL) == -1) {
     perror("sigaction");
@@ -842,7 +844,7 @@ int FtpWarpper::ServiceStart(FtpSession &session) {
 
     std::cout << "PID : " << pid << " FTP-DATA Processer exit." << std::endl;
     std::cout << "PID : " << getpid() << " FTP-CONTORL Processer exit."
-        << std::endl;
+              << std::endl;
   }
 
   return 0;
@@ -902,7 +904,8 @@ int FtpWarpper::FTPControlHandler(FtpSession &session) {
 
   memset(buffer, 0, sizeof(buffer));
 
-  FtpReply(session, FTP_GREET,
+  FtpReply(
+      session, FTP_GREET,
       "Environment: Linux system. Used UNIX BSD Socket. (FtpServer ver. 0.1)");
 
   fd_set fds;
@@ -914,13 +917,14 @@ int FtpWarpper::FTPControlHandler(FtpSession &session) {
 
     memset(buffer, 0, sizeof(buffer));
     nbytes = SocketSource::IOMonitor(SocketList,
-        sizeof(SocketList) / sizeof(int), 100, READFDS_TYPE, fds);
+                                     sizeof(SocketList) / sizeof(int), 100,
+                                     READFDS_TYPE, fds);
     if (nbytes == 0)
       continue;
     else if (nbytes > 0) {
       if (FD_ISSET(session.GetControlSocket(), &fds)) {
         nbytes = SocketSource::TcpReadOneLine(session.GetControlSocket(),
-            buffer, sizeof(buffer));
+                                              buffer, sizeof(buffer));
         if (nbytes <= 0) {
           if (SocketSource::CheckSockError(session.GetControlSocket()) == EAGAIN)
             continue;
@@ -991,47 +995,47 @@ int FtpWarpper::IPC_FTPTransferHandler(FtpSession &session) {
 
     if (result > 0) {
       switch (instruction.getInsType()) {
-      case TRANSFER_PASV_STANDBY_REQ: {
-        std::cout << "TRANSFER_PASV_STANDBY_REQ" << std::endl;
-        PASV_FtpTransferStandby(session, instruction);
-      }
-        break;
+        case TRANSFER_PASV_STANDBY_REQ: {
+          std::cout << "TRANSFER_PASV_STANDBY_REQ" << std::endl;
+          PASV_FtpTransferStandby(session, instruction);
+        }
+          break;
 
-      case TRANSFER_PORT_STANDBY_REQ: {
-        std::cout << "TRANSFER_PORT_STANDBY_REQ" << std::endl;
-        PORT_FtpTransferStandby(session, instruction);
-      }
-        break;
+        case TRANSFER_PORT_STANDBY_REQ: {
+          std::cout << "TRANSFER_PORT_STANDBY_REQ" << std::endl;
+          PORT_FtpTransferStandby(session, instruction);
+        }
+          break;
 
-      case TRANSFER_TRY_CONNNECT_REQ: {
-        std::cout << "TRANSFER_TRY_CONNNECT_REQ" << std::endl;
-        WORK_FtpTryContact(session, instruction);
-      }
-        break;
+        case TRANSFER_TRY_CONNNECT_REQ: {
+          std::cout << "TRANSFER_TRY_CONNNECT_REQ" << std::endl;
+          WORK_FtpTryContact(session, instruction);
+        }
+          break;
 
-      case TRANSFER_SENDCOMMAND_REQ: {
-        std::cout << "TRANSFER_SENDCOMMAND_REQ" << std::endl;
-        WORK_FtpTrySendCommand(session, instruction);
-      }
-        break;
+        case TRANSFER_SENDCOMMAND_REQ: {
+          std::cout << "TRANSFER_SENDCOMMAND_REQ" << std::endl;
+          WORK_FtpTrySendCommand(session, instruction);
+        }
+          break;
 
-      case TRANSFER_FILEUPLOAD_REQ: {
-        std::cout << "TRANSFER_FILEUPLOAD_REQ" << std::endl;
-        WORK_FtpTryFileUpload(session, instruction);
-      }
-        break;
+        case TRANSFER_FILEUPLOAD_REQ: {
+          std::cout << "TRANSFER_FILEUPLOAD_REQ" << std::endl;
+          WORK_FtpTryFileUpload(session, instruction);
+        }
+          break;
 
-      case TRANSFER_FILEDOWNLOAD_REQ: {
-        std::cout << "TRANSFER_FILEDOWNLOAD_REQ" << std::endl;
-        WORK_FtpTryFileDownload(session, instruction);
-      }
-        break;
+        case TRANSFER_FILEDOWNLOAD_REQ: {
+          std::cout << "TRANSFER_FILEDOWNLOAD_REQ" << std::endl;
+          WORK_FtpTryFileDownload(session, instruction);
+        }
+          break;
 
-      case TRANSFER_ABORT_REQ: {
-        std::cout << "TRANSFER_ABORT_REQ" << std::endl;
-        session.SetFtpDataAbortFlag(true);
-      }
-        break;
+        case TRANSFER_ABORT_REQ: {
+          std::cout << "TRANSFER_ABORT_REQ" << std::endl;
+          session.SetFtpDataAbortFlag(true);
+        }
+          break;
 
       }
     }
@@ -1047,78 +1051,78 @@ int FtpWarpper::IPC_FTPTransferHandler(FtpSession &session) {
 }
 
 int FtpWarpper::IPC_FTPControlHandler(FtpSession &session,
-    FtpInstruction &__instruction) {
+                                      FtpInstruction &__instruction) {
   int ResponseCode;
   std::string ReplyContent;
 
   switch (__instruction.getInsType()) {
-  case TRANSFER_PORT_STANDBY_RES: {
-    std::cout << "TRANSFER_PORT_STANDBY_RES" << std::endl;
+    case TRANSFER_PORT_STANDBY_RES: {
+      std::cout << "TRANSFER_PORT_STANDBY_RES" << std::endl;
 
-    if (__instruction.IsInsExecSuccess()) {
-      ReplyContent = std::string(__instruction.getInsContent());
-      ResponseCode = FTP_PORTOK;
-    } else {
-      ReplyContent = "Fail to Enter Port Mode.";
-      ResponseCode = FTP_IP_LIMIT;
+      if (__instruction.IsInsExecSuccess()) {
+        ReplyContent = std::string(__instruction.getInsContent());
+        ResponseCode = FTP_PORTOK;
+      } else {
+        ReplyContent = "Fail to Enter Port Mode.";
+        ResponseCode = FTP_IP_LIMIT;
+      }
     }
-  }
-    break;
+      break;
 
-  case TRANSFER_PASV_STANDBY_RES: {
-    std::cout << "TRANSFER_PASV_STANDBY_RES" << std::endl;
+    case TRANSFER_PASV_STANDBY_RES: {
+      std::cout << "TRANSFER_PASV_STANDBY_RES" << std::endl;
 
-    if (__instruction.IsInsExecSuccess()) {
-      ReplyContent = std::string(__instruction.getInsContent());
-      ResponseCode = FTP_PASVOK;
-    } else {
-      ReplyContent = "Fail to Enter Passive Mode.";
-      ResponseCode = FTP_IP_LIMIT;
+      if (__instruction.IsInsExecSuccess()) {
+        ReplyContent = std::string(__instruction.getInsContent());
+        ResponseCode = FTP_PASVOK;
+      } else {
+        ReplyContent = "Fail to Enter Passive Mode.";
+        ResponseCode = FTP_IP_LIMIT;
+      }
     }
-  }
-    break;
+      break;
 
-  case TRANSFER_SENDCOMMAND_RES: {
-    std::cout << "TRANSFER_SENDCOMMAND_RES" << std::endl;
-    if (__instruction.IsInsExecSuccess()) {
-      ReplyContent = std::string(__instruction.getInsContent());
-      ResponseCode = FTP_TRANSFEROK;
-    } else {
-      ReplyContent = "Transfer fail.";
-      ResponseCode = FTP_BADSENDFILE;
+    case TRANSFER_SENDCOMMAND_RES: {
+      std::cout << "TRANSFER_SENDCOMMAND_RES" << std::endl;
+      if (__instruction.IsInsExecSuccess()) {
+        ReplyContent = std::string(__instruction.getInsContent());
+        ResponseCode = FTP_TRANSFEROK;
+      } else {
+        ReplyContent = "Transfer fail.";
+        ResponseCode = FTP_BADSENDFILE;
+      }
     }
-  }
-    break;
+      break;
 
-  case TRANSFER_FILEDOWNLOAD_RES: {
-    std::cout << "TRANSFER_FILEDOWNLOAD_RES" << std::endl;
-    if (__instruction.IsInsExecSuccess()) {
-      ReplyContent = std::string(__instruction.getInsContent());
-      ResponseCode = FTP_TRANSFEROK;
-    } else {
-      ReplyContent = "Transfer fail.";
-      ResponseCode = FTP_BADSENDFILE;
+    case TRANSFER_FILEDOWNLOAD_RES: {
+      std::cout << "TRANSFER_FILEDOWNLOAD_RES" << std::endl;
+      if (__instruction.IsInsExecSuccess()) {
+        ReplyContent = std::string(__instruction.getInsContent());
+        ResponseCode = FTP_TRANSFEROK;
+      } else {
+        ReplyContent = "Transfer fail.";
+        ResponseCode = FTP_BADSENDFILE;
+      }
     }
-  }
-    break;
+      break;
 
-  case TRANSFER_FILEUPLOAD_RES: {
-    std::cout << "TRANSFER_FILEUPLOAD_RES" << std::endl;
-    if (__instruction.IsInsExecSuccess()) {
-      ReplyContent = std::string(__instruction.getInsContent());
-      ResponseCode = FTP_TRANSFEROK;
-    } else {
-      ReplyContent = "Transfer fail.";
-      ResponseCode = FTP_BADSENDFILE;
+    case TRANSFER_FILEUPLOAD_RES: {
+      std::cout << "TRANSFER_FILEUPLOAD_RES" << std::endl;
+      if (__instruction.IsInsExecSuccess()) {
+        ReplyContent = std::string(__instruction.getInsContent());
+        ResponseCode = FTP_TRANSFEROK;
+      } else {
+        ReplyContent = "Transfer fail.";
+        ResponseCode = FTP_BADSENDFILE;
+      }
     }
-  }
-    break;
+      break;
 
-  default: {
-    ResponseCode = 0;
-    ReplyContent.clear();
-  }
-    break;
+    default: {
+      ResponseCode = 0;
+      ReplyContent.clear();
+    }
+      break;
 
   }
 
