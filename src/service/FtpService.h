@@ -6,11 +6,13 @@
 #include <memory>
 #include <condition_variable>
 
-#include "service/FtpSession.h"
+#include "core/Service.h"
+
+#include "model/FtpSession.h"
 #include "middleware/Socket.h"
 #include "utils/Threadpool.h"
 
-class FtpService {
+class FtpService : public Service {
  public:
   FtpService();
   ~FtpService();

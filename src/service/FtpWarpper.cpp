@@ -24,37 +24,37 @@ void FtpWarpper::RegisterCallback() {
 
   handlers_.clear();
 
-  handlers_["ABOR"] = std::bind(&FtpWarpper::__FTP_ABOR, this,
+  handlers_["ABOR"] = std::bind(&FtpWarpper::ftp_abor, this,
                                 std::placeholders::_1, std::placeholders::_2);
-  handlers_["LIST"] = std::bind(&FtpWarpper::__FTP_LIST, this,
+  handlers_["LIST"] = std::bind(&FtpWarpper::ftp_list, this,
                                 std::placeholders::_1, std::placeholders::_2);
-  handlers_["PASS"] = std::bind(&FtpWarpper::__FTP_PASS, this,
+  handlers_["PASS"] = std::bind(&FtpWarpper::ftp_pass, this,
                                 std::placeholders::_1, std::placeholders::_2);
-  handlers_["PORT"] = std::bind(&FtpWarpper::__FTP_PORT, this,
+  handlers_["PORT"] = std::bind(&FtpWarpper::ftp_port, this,
                                 std::placeholders::_1, std::placeholders::_2);
-  handlers_["PASV"] = std::bind(&FtpWarpper::__FTP_PASV, this,
+  handlers_["PASV"] = std::bind(&FtpWarpper::ftp_pasv, this,
                                 std::placeholders::_1, std::placeholders::_2);
-  handlers_["QUIT"] = std::bind(&FtpWarpper::__FTP_QUIT, this,
+  handlers_["QUIT"] = std::bind(&FtpWarpper::ftp_quit, this,
                                 std::placeholders::_1, std::placeholders::_2);
-  handlers_["RETR"] = std::bind(&FtpWarpper::__FTP_RETR, this,
+  handlers_["RETR"] = std::bind(&FtpWarpper::ftp_retr, this,
                                 std::placeholders::_1, std::placeholders::_2);
-  handlers_["STOR"] = std::bind(&FtpWarpper::__FTP_STOR, this,
+  handlers_["STOR"] = std::bind(&FtpWarpper::ftp_stor, this,
                                 std::placeholders::_1, std::placeholders::_2);
-  handlers_["SYST"] = std::bind(&FtpWarpper::__FTP_SYST, this,
+  handlers_["SYST"] = std::bind(&FtpWarpper::ftp_syst, this,
                                 std::placeholders::_1, std::placeholders::_2);
-  handlers_["TYPE"] = std::bind(&FtpWarpper::__FTP_TYPE, this,
+  handlers_["TYPE"] = std::bind(&FtpWarpper::ftp_type, this,
                                 std::placeholders::_1, std::placeholders::_2);
-  handlers_["USER"] = std::bind(&FtpWarpper::__FTP_USER, this,
+  handlers_["USER"] = std::bind(&FtpWarpper::ftp_user, this,
                                 std::placeholders::_1, std::placeholders::_2);
-  handlers_["CWD"] = std::bind(&FtpWarpper::__FTP_CWD, this,
+  handlers_["CWD"] = std::bind(&FtpWarpper::ftp_cwd, this,
                                std::placeholders::_1, std::placeholders::_2);
-  handlers_["FEAT"] = std::bind(&FtpWarpper::__FTP_FEAT, this,
+  handlers_["FEAT"] = std::bind(&FtpWarpper::ftp_feat, this,
                                 std::placeholders::_1, std::placeholders::_2);
-  handlers_["REST"] = std::bind(&FtpWarpper::__FTP_REST, this,
+  handlers_["REST"] = std::bind(&FtpWarpper::ftp_rest, this,
                                 std::placeholders::_1, std::placeholders::_2);
-  handlers_["PWD"] = std::bind(&FtpWarpper::__FTP_PWD, this,
+  handlers_["PWD"] = std::bind(&FtpWarpper::ftp_pwd, this,
                                std::placeholders::_1, std::placeholders::_2);
-  handlers_["CDUP"] = std::bind(&FtpWarpper::__FTP_CDUP, this,
+  handlers_["CDUP"] = std::bind(&FtpWarpper::ftp_cdup, this,
                                 std::placeholders::_1, std::placeholders::_2);
 }
 
@@ -80,13 +80,13 @@ int FtpWarpper::FtpReply(FtpSession &session, int code, std::string content) {
 }
 
 /* IPC operation */
-int FtpWarpper::IPC_RecvInstruction(int sockfrom, FtpInstruction &instruction) {
+int FtpWarpper::RecvInstruction(int sockfrom, FtpInstruction &instruction) {
   unsigned char *pInstruction = (unsigned char *) &instruction;
   memset(pInstruction, 0, sizeof(instruction));
   return Socket::TcpRecv(sockfrom, pInstruction, sizeof(instruction));
 }
 
-int FtpWarpper::IPC_SendInstruction(int sockto, FtpInstruction &instruction) {
+int FtpWarpper::SendInstruction(int sockto, FtpInstruction &instruction) {
   unsigned char *pInstruction = (unsigned char *) &instruction;
   return Socket::TcpSend(sockto, pInstruction, sizeof(instruction));
 }
@@ -143,7 +143,7 @@ int FtpWarpper::PASV_FtpTransferStandby(FtpSession &session,
 
   } while (0);
 
-  return IPC_SendInstruction(session.ipc_data_sockfd(), instruction);
+  return SendInstruction(session.ipc_data_sockfd(), instruction);
 }
 
 int FtpWarpper::PORT_FtpTransferStandby(FtpSession &session,
@@ -182,12 +182,11 @@ int FtpWarpper::PORT_FtpTransferStandby(FtpSession &session,
   instruction.setInsContentLength(reply_content.size());
 
   session.set_transmode(PORT_MODE_ENABLE);
-
-  return IPC_SendInstruction(session.ipc_data_sockfd(), instruction);
+  return SendInstruction(session.ipc_data_sockfd(), instruction);
 }
 
-int FtpWarpper::WORK_FtpTrySendCommand(FtpSession &session,
-                                       FtpInstruction &instruction) {
+int FtpWarpper::TrySendCommand(FtpSession &session,
+                               FtpInstruction &instruction) {
   int result = 0;
 
   if (-1 != session.trans_sockfd()) {
@@ -215,11 +214,10 @@ int FtpWarpper::WORK_FtpTrySendCommand(FtpSession &session,
     instruction.setInsContentLength(0);
   }
 
-  return IPC_SendInstruction(session.ipc_data_sockfd(), instruction);
+  return SendInstruction(session.ipc_data_sockfd(), instruction);
 }
 
-int FtpWarpper::WORK_FtpTryContact(FtpSession &session,
-                                   FtpInstruction &instruction) {
+int FtpWarpper::TryContact(FtpSession &session, FtpInstruction &instruction) {
   int result;
 
   struct sockaddr_in remote;
@@ -263,11 +261,11 @@ int FtpWarpper::WORK_FtpTryContact(FtpSession &session,
     instruction.setInsContentLength(0);
   }
 
-  return IPC_SendInstruction(session.ipc_data_sockfd(), instruction);
+  return SendInstruction(session.ipc_data_sockfd(), instruction);
 }
 
-int FtpWarpper::WORK_FtpTryFileDownload(FtpSession &session,
-                                        FtpInstruction &instruction) {
+int FtpWarpper::TryFileDownload(FtpSession &session,
+                                FtpInstruction &instruction) {
   int result;
   int nbytes;
   int total_bytes = 0;
@@ -377,12 +375,12 @@ int FtpWarpper::WORK_FtpTryFileDownload(FtpSession &session,
     close(file_sockfd);
   }
 
-  return IPC_SendInstruction(session.ipc_data_sockfd(), instruction);
+  return SendInstruction(session.ipc_data_sockfd(), instruction);
 
 }
 
-int FtpWarpper::WORK_FtpTryFileUpload(FtpSession &session,
-                                      FtpInstruction &instruction) {
+int FtpWarpper::TryFileUpload(FtpSession &session,
+                              FtpInstruction &instruction) {
   int result;
   int file_sockfd;
   std::string filepath;
@@ -438,7 +436,8 @@ int FtpWarpper::WORK_FtpTryFileUpload(FtpSession &session,
       if (result > 0) {
         if (FD_ISSET(TransferSocket, &fds)) {
           /* File stream : client send to server */
-          result = sendfile(file_sockfd, session.trans_sockfd(), NULL, nbytes);
+          result = sendfile(file_sockfd, session.trans_sockfd(), nullptr,
+                            nbytes);
           if (result > 0) {
             std::cout << "upload : result = " << result << std::endl;
             total_bytes += result;
@@ -480,11 +479,11 @@ int FtpWarpper::WORK_FtpTryFileUpload(FtpSession &session,
     close(file_sockfd);
   }
 
-  return IPC_SendInstruction(session.ipc_data_sockfd(), instruction);
+  return SendInstruction(session.ipc_data_sockfd(), instruction);
 }
 
 /* ftp contorl processer handler */
-int FtpWarpper::__FTP_CWD(FtpSession &session, char *context) {
+int FtpWarpper::ftp_cwd(FtpSession &session, char *context) {
   std::string reply_content;
 
   std::string ftp_path = std::string(context);
@@ -538,7 +537,7 @@ int FtpWarpper::__FTP_CWD(FtpSession &session, char *context) {
   return FtpReply(session, errcode, reply_content);
 }
 
-int FtpWarpper::__FTP_ABOR(FtpSession &session, char *context) {
+int FtpWarpper::ftp_abor(FtpSession &session, char *context) {
   FtpInstruction instruction;
 
   instruction.clear();
@@ -546,13 +545,13 @@ int FtpWarpper::__FTP_ABOR(FtpSession &session, char *context) {
   instruction.setInsExecFlag(true);
   instruction.setInsType(TRANSFER_ABORT_REQ);
 
-  IPC_SendInstruction(session.ipc_ctrl_sockfd(), instruction);
+  SendInstruction(session.ipc_ctrl_sockfd(), instruction);
   FtpReply(session, FTP_ABOROK, std::string("Abort ok."));
 
   return 0;
 }
 
-int FtpWarpper::__FTP_LIST(FtpSession &session, char *context) {
+int FtpWarpper::ftp_list(FtpSession &session, char *context) {
   FtpInstruction instruction;
 
   /* 1. try to notice the ftp-data processer to connect */
@@ -561,7 +560,7 @@ int FtpWarpper::__FTP_LIST(FtpSession &session, char *context) {
   instruction.setInsExecFlag(true);
   instruction.setInsType(TRANSFER_TRY_CONNNECT_REQ);
 
-  IPC_SendInstruction(session.ipc_ctrl_sockfd(), instruction);
+  SendInstruction(session.ipc_ctrl_sockfd(), instruction);
   FtpReply(session, FTP_DATACONN,
            std::string("Opening ASCII mode data connection for /bin/ls"));
 
@@ -582,11 +581,11 @@ int FtpWarpper::__FTP_LIST(FtpSession &session, char *context) {
   instruction.setInsContent(DirListString.c_str(), DirListString.size());
   instruction.setInsContentLength(DirListString.size());
 
-  return IPC_SendInstruction(session.ipc_ctrl_sockfd(), instruction);
+  return SendInstruction(session.ipc_ctrl_sockfd(), instruction);
 
 }
 
-int FtpWarpper::__FTP_PASS(FtpSession &session, char *context) {
+int FtpWarpper::ftp_pass(FtpSession &session, char *context) {
   std::string password(context);
   password = Utils::DeleteSpace(password);
   session.set_password(password);
@@ -596,7 +595,7 @@ int FtpWarpper::__FTP_PASS(FtpSession &session, char *context) {
   return FtpReply(session, FTP_LOGINOK, reply_content);
 }
 
-int FtpWarpper::__FTP_PORT(FtpSession &session, char *context) {
+int FtpWarpper::ftp_port(FtpSession &session, char *context) {
   FtpInstruction instruction;
 
   instruction.clear();
@@ -607,11 +606,11 @@ int FtpWarpper::__FTP_PORT(FtpSession &session, char *context) {
   instruction.setInsContentLength(strlen(context));
 
   /* send connect request to ftp-data processer */
-  IPC_SendInstruction(session.ipc_ctrl_sockfd(), instruction);
+  SendInstruction(session.ipc_ctrl_sockfd(), instruction);
   return 0;
 }
 
-int FtpWarpper::__FTP_QUIT(FtpSession &session, char *context) {
+int FtpWarpper::ftp_quit(FtpSession &session, char *context) {
   std::string ReplyContent = "Goodbye";
 
   FtpReply(session, FTP_GOODBYE, ReplyContent);
@@ -621,7 +620,7 @@ int FtpWarpper::__FTP_QUIT(FtpSession &session, char *context) {
   return 0;
 }
 
-int FtpWarpper::__FTP_RETR(FtpSession &session, char *context) {
+int FtpWarpper::ftp_retr(FtpSession &session, char *context) {
   FtpInstruction instruction;
 
   /* 1. try to notice the ftp-data processer to connect */
@@ -630,7 +629,7 @@ int FtpWarpper::__FTP_RETR(FtpSession &session, char *context) {
   instruction.setInsExecFlag(true);
   instruction.setInsType(TRANSFER_TRY_CONNNECT_REQ);
 
-  IPC_SendInstruction(session.ipc_ctrl_sockfd(), instruction);
+  SendInstruction(session.ipc_ctrl_sockfd(), instruction);
 
   /*2. try to send file to client */
   std::string temp;
@@ -653,10 +652,10 @@ int FtpWarpper::__FTP_RETR(FtpSession &session, char *context) {
   instruction.setInsContent(filePath.c_str(), filePath.size());
   instruction.setInsContentLength(filePath.size());
 
-  return IPC_SendInstruction(session.ipc_ctrl_sockfd(), instruction);
+  return SendInstruction(session.ipc_ctrl_sockfd(), instruction);
 }
 
-int FtpWarpper::__FTP_STOR(FtpSession &session, char *context) {
+int FtpWarpper::ftp_stor(FtpSession &session, char *context) {
   FtpInstruction instruction;
 
   /* 1. try to notice the ftp-data processer to connect */
@@ -665,7 +664,7 @@ int FtpWarpper::__FTP_STOR(FtpSession &session, char *context) {
   instruction.setInsExecFlag(true);
   instruction.setInsType(TRANSFER_TRY_CONNNECT_REQ);
 
-  IPC_SendInstruction(session.ipc_ctrl_sockfd(), instruction);
+  SendInstruction(session.ipc_ctrl_sockfd(), instruction);
 
   /*2. try to send file to client */
 
@@ -681,15 +680,15 @@ int FtpWarpper::__FTP_STOR(FtpSession &session, char *context) {
   instruction.setInsContent(filePath.c_str(), filePath.size());
   instruction.setInsContentLength(filePath.size());
 
-  return IPC_SendInstruction(session.ipc_ctrl_sockfd(), instruction);
+  return SendInstruction(session.ipc_ctrl_sockfd(), instruction);
 }
 
-int FtpWarpper::__FTP_SYST(FtpSession &session, char *context) {
+int FtpWarpper::ftp_syst(FtpSession &session, char *context) {
   const std::string reply_content = "UNIX Type: L8";
   return FtpReply(session, FTP_SYSTOK, reply_content);
 }
 
-int FtpWarpper::__FTP_TYPE(FtpSession &session, char *context) {
+int FtpWarpper::ftp_type(FtpSession &session, char *context) {
   std::string format(context);
   format = Utils::DeleteSpace(format);
 
@@ -699,7 +698,7 @@ int FtpWarpper::__FTP_TYPE(FtpSession &session, char *context) {
   return FtpReply(session, FTP_TYPEOK, reply_content);
 }
 
-int FtpWarpper::__FTP_USER(FtpSession &session, char *context) {
+int FtpWarpper::ftp_user(FtpSession &session, char *context) {
   std::string username(context);
 
   username = Utils::DeleteSpace(username);
@@ -709,7 +708,7 @@ int FtpWarpper::__FTP_USER(FtpSession &session, char *context) {
   return FtpReply(session, FTP_GIVEPWORD, "User name okay, need password.");
 }
 
-int FtpWarpper::__FTP_PASV(FtpSession &session, char *context) {
+int FtpWarpper::ftp_pasv(FtpSession &session, char *context) {
   FtpInstruction instruction;
 
   instruction.clear();
@@ -718,22 +717,22 @@ int FtpWarpper::__FTP_PASV(FtpSession &session, char *context) {
   instruction.setInsType(TRANSFER_PASV_STANDBY_REQ);
   instruction.setInsContentLength(0);
 
-  IPC_SendInstruction(session.ipc_ctrl_sockfd(), instruction);
+  SendInstruction(session.ipc_ctrl_sockfd(), instruction);
 
   return 0;
 }
 
-int FtpWarpper::__FTP_FEAT(FtpSession &session, char *context) {
+int FtpWarpper::ftp_feat(FtpSession &session, char *context) {
   const std::string reply_content = "Not support this command";
   return FtpReply(session, FTP_COMMANDNOTIMPL, reply_content);
 }
 
-int FtpWarpper::__FTP_REST(FtpSession &session, char *context) {
+int FtpWarpper::ftp_rest(FtpSession &session, char *context) {
   const std::string ReplyContent = "Reset ok!";
   return FtpReply(session, FTP_RESTOK, ReplyContent);
 }
 
-int FtpWarpper::__FTP_PWD(FtpSession &session, char *context) {
+int FtpWarpper::ftp_pwd(FtpSession &session, char *context) {
   std::string reply_content;
   std::string directory;
 
@@ -742,7 +741,7 @@ int FtpWarpper::__FTP_PWD(FtpSession &session, char *context) {
   return FtpReply(session, FTP_PWDOK, reply_content);
 }
 
-int FtpWarpper::__FTP_CDUP(FtpSession &session, char *context) {
+int FtpWarpper::ftp_cdup(FtpSession &session, char *context) {
   std::string reply_content;
   std::string directory;
 
@@ -882,7 +881,7 @@ int FtpWarpper::FTPControlHandler(FtpSession &session) {
 
       /* IPC ftp-control process */
       if (FD_ISSET(session.ipc_ctrl_sockfd(), &fds)) {
-        nbytes = IPC_RecvInstruction(session.ipc_ctrl_sockfd(), instruction);
+        nbytes = RecvInstruction(session.ipc_ctrl_sockfd(), instruction);
         if (nbytes <= 0) {
           if (Socket::CheckSockError(session.ipc_ctrl_sockfd()) == EAGAIN)
             continue;
@@ -925,7 +924,7 @@ void FtpWarpper::IPC_FTPTransferHandler(FtpSession &session) {
       continue;
     else if (result > 0) {
       if (FD_ISSET(ipc_socket, &fds)) {
-        result = IPC_RecvInstruction(session.ipc_data_sockfd(), instruction);
+        result = RecvInstruction(session.ipc_data_sockfd(), instruction);
       }
     }
 
@@ -945,25 +944,25 @@ void FtpWarpper::IPC_FTPTransferHandler(FtpSession &session) {
 
         case TRANSFER_TRY_CONNNECT_REQ: {
           std::cout << "TRANSFER_TRY_CONNNECT_REQ" << std::endl;
-          WORK_FtpTryContact(session, instruction);
+          TryContact(session, instruction);
         }
           break;
 
         case TRANSFER_SENDCOMMAND_REQ: {
           std::cout << "TRANSFER_SENDCOMMAND_REQ" << std::endl;
-          WORK_FtpTrySendCommand(session, instruction);
+          TrySendCommand(session, instruction);
         }
           break;
 
         case TRANSFER_FILEUPLOAD_REQ: {
           std::cout << "TRANSFER_FILEUPLOAD_REQ" << std::endl;
-          WORK_FtpTryFileUpload(session, instruction);
+          TryFileUpload(session, instruction);
         }
           break;
 
         case TRANSFER_FILEDOWNLOAD_REQ: {
           std::cout << "TRANSFER_FILEDOWNLOAD_REQ" << std::endl;
-          WORK_FtpTryFileDownload(session, instruction);
+          TryFileDownload(session, instruction);
         }
           break;
 

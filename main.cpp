@@ -1,7 +1,7 @@
 #include <iostream>
 
-#include "src/FtpService.h"
-#include "src/service/FtpSession.h"
+#include "src/service/FtpService.h"
+#include "src/model/FtpSession.h"
 #include "src/service/FtpWarpper.h"
 #include "src/utils/Utils.h"
 

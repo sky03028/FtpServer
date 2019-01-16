@@ -5,13 +5,12 @@
 
 #include "core/Session.h"
 
-enum transfer_mode_e {
+enum TransferMode {
   PASV_MODE_ENABLE = 1,
   PORT_MODE_ENABLE = 2,
 };
 
-enum transfer_cmdtype_e {
-
+enum TransferCmdType {
   TRANSFER_PASV_STANDBY_REQ = 1,
   TRANSFER_PASV_STANDBY_RES,
 
@@ -36,7 +35,7 @@ enum transfer_cmdtype_e {
 
 class FtpSession : public Session {
  public:
-  FtpSession()
+  FtpSession(const int type)
       : pasv_listen_sockfd_(-1),
         pasv_listen_port_(0),
         port_connect_sockfd_(-1),
@@ -52,25 +51,12 @@ class FtpSession : public Session {
         trans_sockfd_(-1),
         data_pid_(0),
         interval_(0),
-        abort_flag_(false) {
+        abort_flag_(false),
+        type_(type) {
     directory_ = std::string("/");
   }
 
   virtual ~FtpSession() = default;
-
-  FtpSession & operator()(Session &s) {
-    ctrl_sockfd_ = s.sockfd();
-    ctrl_ip_address_ = s.ip_address();
-    ctrl_port_ = s.port();
-    return (*this);
-  }
-
-  FtpSession & operator=(Session &s) {
-    ctrl_sockfd_ = s.sockfd();
-    ctrl_ip_address_ = s.ip_address();
-    ctrl_port_ = s.port();
-    return (*this);
-  }
 
   void set_pasv_listen_sockfd(int sockfd) {
     pasv_listen_sockfd_ = sockfd;
@@ -200,6 +186,10 @@ class FtpSession : public Session {
     abort_flag_ = flag;
   }
 
+  int type() const {
+    return type_;
+  }
+
  private:
   int pasv_listen_sockfd_;
   unsigned short pasv_listen_port_;
@@ -232,7 +222,9 @@ class FtpSession : public Session {
   unsigned int interval_;
 
   bool abort_flag_;
+  int type_;
 
 };
+
 
 #endif // FTPSESSION_H

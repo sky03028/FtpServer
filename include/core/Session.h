@@ -10,6 +10,12 @@
 #include <mutex>
 #endif
 
+class SessionType {
+ public:
+  static const int kTypeUndefined = 0;
+  static const int kTypeFTP = 1;
+};
+
 class Session {
  public:
   Session()
@@ -55,6 +61,8 @@ class Session {
   void set_listen_sockfd(const int listen_sockfd) {
     listen_sockfd_ = listen_sockfd;
   }
+
+  int type() const = 0;
 
   const std::mutex& mutex() const {
     return mutex_;
