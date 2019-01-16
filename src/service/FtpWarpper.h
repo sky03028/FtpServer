@@ -23,7 +23,7 @@ class FtpWarpper {
 
   void RegisterCallback();
 
-  int ServiceStart(FtpSession &session);
+  int Setup(FtpSession &session);
 
   void MutiProcesserInit(FtpSession &session);
 
@@ -67,7 +67,7 @@ class FtpWarpper {
   int ftp_pwd(FtpSession &session, char *context);
   int ftp_cdup(FtpSession &session, char *context);
 
-  /* IPC */
+  /* IPC 公用 */
   int RecvInstruction(int sockfrom, FtpInstruction &instruction);
   int SendInstruction(int sockto, FtpInstruction &instruction);
 

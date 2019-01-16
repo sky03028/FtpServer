@@ -21,9 +21,9 @@ class FtpService : public Service {
   int Start();
 
  private:
-  void ServiceThreadHandler(void *arg);
-  void SeviceMonitor(void *arg);
-  void FtpServiceStart(FtpSession& ftpSession);
+  void Handler(void *arg);
+  void Monitor(void *arg);
+  void SplitProcessor(std::shared_ptr<FtpSession>& session);
 
   int listen_socket_;
   int accecpt_timeout_;

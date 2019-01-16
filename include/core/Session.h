@@ -62,7 +62,7 @@ class Session {
     listen_sockfd_ = listen_sockfd;
   }
 
-  int type() const = 0;
+  virtual int type() const = 0;
 
   const std::mutex& mutex() const {
     return mutex_;

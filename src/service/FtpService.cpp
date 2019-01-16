@@ -18,7 +18,7 @@ FtpService::FtpService()
 FtpService::~FtpService() {
 }
 
-void FtpService::FtpServiceStart(FtpSession& ftpSession) {
+void FtpService::SplitProcessor(std::shared_ptr<FtpSession>& session) {
   int pid;
 
   pid = fork();
@@ -26,10 +26,10 @@ void FtpService::FtpServiceStart(FtpSession& ftpSession) {
     perror("fork");
   } else if (pid == 0) {
     std::cout << "Ftp Running." << std::endl;
-    FtpWarpper *ftpService;
-    ftpService = new FtpWarpper();
-    ftpService->ServiceStart(ftpSession);
-    delete ftpService;
+    FtpWarpper *warpper;
+    warpper = new FtpWarpper();
+    warpper->Setup(*session);
+    delete warpper;
 
     exit(EXIT_SUCCESS);
   } else if (pid > 0) {
@@ -38,7 +38,7 @@ void FtpService::FtpServiceStart(FtpSession& ftpSession) {
   }
 }
 
-void FtpService::ServiceThreadHandler(void *arg) {
+void FtpService::Handler(void *arg) {
   do {
     std::shared_ptr<FtpSession> session;
     {
@@ -53,11 +53,11 @@ void FtpService::ServiceThreadHandler(void *arg) {
     }
     session->set_root_path("/home/xueda/share/ftpServer");
     session->set_directory("/home/xueda/share/ftpServer");
-    FtpServiceStart(*session);
+    SplitProcessor(session);
   } while (running_);
 }
 
-void FtpService::SeviceMonitor(void *arg) {
+void FtpService::Monitor(void *arg) {
   std::string command;
 
   while (1) {
@@ -75,8 +75,8 @@ int FtpService::Init() {
   listen_socket_ = Socket::TcpServerCreate(nullptr, kFtpServicePort);
   Socket::TcpListen(listen_socket_, max_connected_cnt_);
   thread_pool_.reset(new ThreadPool());
-  thread_pool_->ThreadsCreate(&FtpService::SeviceMonitor, this, nullptr, 1);
-  thread_pool_->ThreadsCreate(&FtpService::ServiceThreadHandler, this, nullptr,
+  thread_pool_->ThreadsCreate(&FtpService::Monitor, this, nullptr, 1);
+  thread_pool_->ThreadsCreate(&FtpService::Handler, this, nullptr,
                               max_thread_cnt_);
 
   return 0;
@@ -85,9 +85,7 @@ int FtpService::Init() {
 int FtpService::Start() {
   struct sockaddr_in client;
   int sd;
-  std::shared_ptr<FtpSession> session(new FtpSession());
 
-  session->set_listen_sockfd(listen_socket_);
   do {
     sd = Socket::TcpAccept(listen_socket_, (struct sockaddr *) &client,
                            accecpt_timeout_);
@@ -99,6 +97,9 @@ int FtpService::Start() {
         Utils::ThreadSleep(1000);
         continue;
       }
+      std::shared_ptr<FtpSession> session(
+          new FtpSession(SessionType::kTypeFTP));
+      session->set_listen_sockfd(listen_socket_);
       session->set_sockfd(sd);
       session->set_ip_address(client.sin_addr.s_addr);
       session->set_port(client.sin_port);

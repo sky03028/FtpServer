@@ -55,7 +55,6 @@ class FtpSession : public Session {
         type_(type) {
     directory_ = std::string("/");
   }
-
   virtual ~FtpSession() = default;
 
   void set_pasv_listen_sockfd(int sockfd) {
@@ -181,7 +180,6 @@ class FtpSession : public Session {
   bool has_data_abort() const {
     return abort_flag_;
   }
-
   void set_data_abort_flag(bool flag) {
     abort_flag_ = flag;
   }
@@ -192,14 +190,16 @@ class FtpSession : public Session {
 
  private:
   int pasv_listen_sockfd_;
-  unsigned short pasv_listen_port_;
+  unsigned short pasv_listen_port_; // no use
 
-  int port_connect_sockfd_;
-  unsigned short port_connect_port_;
+  int port_connect_sockfd_; // no use
+  unsigned short port_connect_port_; // no use
 
   int transmode_;
 
-  /* for communicate between control processer and transfer processer */
+  /* for communicate between control processer and transfer processer
+   * 用于 控制进程和数据传输进程通信用的socket
+   *  */
   int ipc_ctrl_sockfd_;
   int ipc_data_sockfd_;
 
@@ -208,7 +208,8 @@ class FtpSession : public Session {
   int ctrl_port_;
   int ctrl_sockfd_;
 
-  /* ftp-data */
+  /* ftp-data
+   * 数据传输进程用于与客户端同通信的socket */
   int trans_ip_address_;
   int trans_port_;
   int trans_sockfd_;

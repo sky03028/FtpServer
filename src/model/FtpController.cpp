@@ -16,8 +16,8 @@ FtpController::~FtpController() {
 }
 
 /* ftp contorl processer handler */
-int FtpController::ftp_cwd(const std::shared_ptr<Session> &session,
-                           Context *context) {
+int FtpController::ftp_cwd(const std::shared_ptr<FtpSession> &session,
+                           DefaultContext *context) {
   std::string reply_content;
 
   std::string ftp_path = std::string(context);
@@ -71,8 +71,8 @@ int FtpController::ftp_cwd(const std::shared_ptr<Session> &session,
   return Reply(session, errcode, reply_content);
 }
 
-int FtpController::ftp_abor(const std::shared_ptr<Session> &session,
-                            Context *context) {
+int FtpController::ftp_abor(const std::shared_ptr<FtpSession> &session,
+                            DefaultContext *context) {
   FtpInstruction instruction;
 
   instruction.clear();
@@ -90,8 +90,8 @@ int FtpController::ftp_abor(const std::shared_ptr<Session> &session,
   return 0;
 }
 
-int FtpController::ftp_list(const std::shared_ptr<Session> &session,
-                            Context *context) {
+int FtpController::ftp_list(const std::shared_ptr<FtpSession> &session,
+                            DefaultContext *context) {
   FtpInstruction instruction;
 
   /* 1. try to notice the ftp-data processer to connect */
@@ -125,8 +125,8 @@ int FtpController::ftp_list(const std::shared_ptr<Session> &session,
 
 }
 
-int FtpController::ftp_pass(const std::shared_ptr<Session> &session,
-                            Context *context) {
+int FtpController::ftp_pass(const std::shared_ptr<FtpSession> &session,
+                            DefaultContext *context) {
   std::string password(context);
   password = Utils::DeleteSpace(password);
   session.set_password(password);
@@ -136,8 +136,8 @@ int FtpController::ftp_pass(const std::shared_ptr<Session> &session,
   return Reply(session, FTP_LOGINOK, reply_content);
 }
 
-int FtpController::ftp_port(const std::shared_ptr<Session> &session,
-                            Context *context) {
+int FtpController::ftp_port(const std::shared_ptr<FtpSession> &session,
+                            DefaultContext *context) {
   FtpInstruction instruction;
 
   instruction.clear();
@@ -152,8 +152,8 @@ int FtpController::ftp_port(const std::shared_ptr<Session> &session,
   return 0;
 }
 
-int FtpController::ftp_quit(const std::shared_ptr<Session> &session,
-                            Context *context) {
+int FtpController::ftp_quit(const std::shared_ptr<FtpSession> &session,
+                            DefaultContext *context) {
   std::string ReplyContent = "Goodbye";
 
   Reply(session, FTP_GOODBYE, ReplyContent);
@@ -163,8 +163,8 @@ int FtpController::ftp_quit(const std::shared_ptr<Session> &session,
   return 0;
 }
 
-int FtpController::ftp_retr(const std::shared_ptr<Session> &session,
-                            Context *context) {
+int FtpController::ftp_retr(const std::shared_ptr<FtpSession> &session,
+                            DefaultContext *context) {
   FtpInstruction instruction;
 
   /* 1. try to notice the ftp-data processer to connect */
@@ -199,8 +199,8 @@ int FtpController::ftp_retr(const std::shared_ptr<Session> &session,
   return SendInstruction(session.ipc_ctrl_sockfd(), instruction);
 }
 
-int FtpController::ftp_stor(const std::shared_ptr<Session> &session,
-                            Context *context) {
+int FtpController::ftp_stor(const std::shared_ptr<FtpSession> &session,
+                            DefaultContext *context) {
   FtpInstruction instruction;
 
   /* 1. try to notice the ftp-data processer to connect */
@@ -228,14 +228,14 @@ int FtpController::ftp_stor(const std::shared_ptr<Session> &session,
   return SendInstruction(session.ipc_ctrl_sockfd(), instruction);
 }
 
-int FtpController::ftp_syst(const std::shared_ptr<Session> &session,
-                            Context *context) {
+int FtpController::ftp_syst(const std::shared_ptr<FtpSession> &session,
+                            DefaultContext *context) {
   const std::string reply_content = "UNIX Type: L8";
   return Reply(session, FTP_SYSTOK, reply_content);
 }
 
-int FtpController::ftp_type(const std::shared_ptr<Session> &session,
-                            Context *context) {
+int FtpController::ftp_type(const std::shared_ptr<FtpSession> &session,
+                            DefaultContext *context) {
   std::string format(context);
   format = Utils::DeleteSpace(format);
 
@@ -245,8 +245,8 @@ int FtpController::ftp_type(const std::shared_ptr<Session> &session,
   return Reply(session, FTP_TYPEOK, reply_content);
 }
 
-int FtpController::ftp_user(const std::shared_ptr<Session> &session,
-                            Context *context) {
+int FtpController::ftp_user(const std::shared_ptr<FtpSession> &session,
+                            DefaultContext *context) {
   std::string username(context);
 
   username = Utils::DeleteSpace(username);
@@ -256,8 +256,8 @@ int FtpController::ftp_user(const std::shared_ptr<Session> &session,
   return Reply(session, FTP_GIVEPWORD, "User name okay, need password.");
 }
 
-int FtpController::ftp_pasv(const std::shared_ptr<Session> &session,
-                            Context *context) {
+int FtpController::ftp_pasv(const std::shared_ptr<FtpSession> &session,
+                            DefaultContext *context) {
   FtpInstruction instruction;
 
   instruction.clear();
@@ -271,20 +271,20 @@ int FtpController::ftp_pasv(const std::shared_ptr<Session> &session,
   return 0;
 }
 
-int FtpController::ftp_feat(const std::shared_ptr<Session> &session,
-                            Context *context) {
+int FtpController::ftp_feat(const std::shared_ptr<FtpSession> &session,
+                            DefaultContext *context) {
   const std::string reply_content = "Not support this command";
   return Reply(session, FTP_COMMANDNOTIMPL, reply_content);
 }
 
-int FtpController::ftp_rest(const std::shared_ptr<Session> &session,
-                            Context *context) {
+int FtpController::ftp_rest(const std::shared_ptr<FtpSession> &session,
+                            DefaultContext *context) {
   const std::string ReplyContent = "Reset ok!";
   return Reply(session, FTP_RESTOK, ReplyContent);
 }
 
-int FtpController::ftp_pwd(const std::shared_ptr<Session> &session,
-                           Context *context) {
+int FtpController::ftp_pwd(const std::shared_ptr<FtpSession> &session,
+                           DefaultContext *context) {
   std::string reply_content;
   std::string directory;
 
@@ -293,8 +293,8 @@ int FtpController::ftp_pwd(const std::shared_ptr<Session> &session,
   return Reply(session, FTP_PWDOK, reply_content);
 }
 
-int FtpController::ftp_cdup(const std::shared_ptr<Session> &session,
-                            Context *context) {
+int FtpController::ftp_cdup(const std::shared_ptr<FtpSession> &session,
+                            DefaultContext *context) {
   std::string reply_content;
   std::string directory;
 

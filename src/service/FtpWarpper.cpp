@@ -333,7 +333,8 @@ int FtpWarpper::TryFileDownload(FtpSession &session,
             nbytes = fileStat.st_size - total_bytes;
 
           /* File stream : Server send to client */
-          nbytes = sendfile(session.trans_sockfd(), file_sockfd, NULL, nbytes);
+          nbytes = sendfile(session.trans_sockfd(), file_sockfd, nullptr,
+                            nbytes);
           if (nbytes > 0) {
             total_bytes += nbytes;
             continue;
@@ -760,7 +761,7 @@ int FtpWarpper::ftp_cdup(FtpSession &session, char *context) {
   return FtpReply(session, FTP_CWDOK, reply_content);
 }
 
-int FtpWarpper::ServiceStart(FtpSession &session) {
+int FtpWarpper::Setup(FtpSession &session) {
   int pid;
 
   MutiProcesserInit(session);
