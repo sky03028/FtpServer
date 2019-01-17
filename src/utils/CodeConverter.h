@@ -11,7 +11,7 @@ class CodeConverter {
   CodeConverter(const char *from_charset, const char *to_charset) {
     cd = iconv_open(to_charset, from_charset);
   }
-  ~CodeConverter() {
+  virtual ~CodeConverter() {
     iconv_close(cd);
   }
 

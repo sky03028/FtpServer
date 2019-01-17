@@ -8,11 +8,11 @@
 #ifndef INCLUDE_CORE_CONTROLLER_H_
 #define INCLUDE_CORE_CONTROLLER_H_
 
-#include "NetAdapter.h"
+#include "NetworkAdapter.h"
 
 class Session;
 
-class Controller : public NetAdapter {
+class Controller : public NetworkAdapter {
  public:
   Controller() = default;
   virtual ~Controller() = default;

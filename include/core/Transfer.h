@@ -8,9 +8,9 @@
 #ifndef INCLUDE_CORE_TRANSFER_H_
 #define INCLUDE_CORE_TRANSFER_H_
 
-#include "NetAdapter.h"
+#include "NetworkAdapter.h"
 
-class Transfer : public NetAdapter {
+class Transfer : public NetworkAdapter {
  public:
   Transfer() = default;
   virtual ~Transfer() = default;

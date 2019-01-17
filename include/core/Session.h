@@ -10,6 +10,8 @@
 #include <mutex>
 #endif
 
+#include "NetworkDriver.h"
+
 class Context;
 
 class SessionType {
@@ -18,7 +20,7 @@ class SessionType {
   static const int kTypeFTP = 1;
 };
 
-class Session {
+class Session : public NetworkDriver {
  public:
   Session()
       : sockfd_(0),
@@ -27,7 +29,9 @@ class Session {
         timeout_(0),
         listen_sockfd_(0) {
   }
-  virtual ~Session() = default;
+  virtual ~Session() {
+
+  }
 
   int sockfd() const {
     return sockfd_;
@@ -70,9 +74,6 @@ class Session {
 
   virtual int type() const = 0;
 
-  virtual int SendTo(const Context* context) = 0;
-
-  virtual int RecvFrom(const Context* context) = 0;
  private:
   int sockfd_;
   unsigned int ip_address_;

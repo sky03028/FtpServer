@@ -8,82 +8,98 @@
 #ifndef SRC_MODEL_DEFAULTSESSION_H_
 #define SRC_MODEL_DEFAULTSESSION_H_
 
+#include <string.h>
 #include "core/Session.h"
+#include "middleware/Socket.h"
 
 class DefaultSession : public Session {
  public:
-  DefaultSession(const int type)
-      : ipc_sockfd_(-1),
-        transfer_pid_(0),
-        directory_("/"),
-        has_abort_(false),
-        transfer_mode_(0),
-        type_(type) {
-  }
+  DefaultSession() = default;
   virtual ~DefaultSession() = default;
 
-  void set_ipc_sockfd(const int sockfd) {
-    ipc_sockfd_ = sockfd;
-  }
-  int ipc_sockfd() const {
-    return ipc_sockfd_;
-  }
-
-  void set_transfer_pid(const int pid) {
-    transfer_pid_ = pid;
-  }
-  int transfer_pid() const {
-    return transfer_pid_;
-  }
-
-  void set_directory(const std::string& directory) {
-    directory_ = directory;
-  }
-  const std::string& directory() const {
-    return directory_;
-  }
-
-  void set_root_directory(const std::string& directory) {
-    root_directory_ = directory;
-  }
-  const std::string& root_directory() const {
-    return directory_;
+  virtual int SendTo(Context* context) {
+    if (sockfd() <= 0) {
+      return -1;
+    }
+    int nbytes = 0;
+    switch (context->content_type()) {
+      case ContentType::kJson:
+      case ContentType::kString: {
+        nbytes = Send(sockfd(), (unsigned char*) context->content().c_str(),
+                      context->content().size());
+      }
+        break;
+      case ContentType::kBinary: {
+      }
+        break;
+      default:
+        break;
+    }
+    return nbytes;
   }
 
-  void set_abort_flag(const bool flag) {
-    has_abort_ = flag;
-  }
-  bool has_abort() const {
-    return has_abort_;
-  }
-
-  void set_transfer_mode(const int mode) {
-    transfer_mode_ = mode;
-  }
-  int transfer_mode() const {
-    return transfer_mode_;
-  }
-
-  virtual int type() const {
-    return type_;
+  virtual int RecvFrom(Context* context) {
+    if (sockfd() <= 0) {
+      return -1;
+    }
+    char buffer[4096];
+    memset(buffer, 0, sizeof(buffer));
+    int nbytes = Recv(sockfd(), (unsigned char*) buffer, sizeof(buffer));
+    if (nbytes > 0) {
+      context->set_content(std::string(buffer));
+    }
+    return nbytes;
   }
 
-  virtual int SendTo(const Context* context) {
-    return 0;
+  virtual void Create(const int conn_type) {
+    int result = 0;
+    switch (conn_type) {
+      case ConnectionType::kClient: {
+        result = Socket::CreateClient(ip_address(), port());
+      }
+        break;
+      case ConnectionType::kServer: {
+        int listen_sockfd = 0;
+        result = Socket::CreateServer(&listen_sockfd);
+        set_listen_sockfd(listen_sockfd);
+      }
+        break;
+      default:
+        break;
+    }
+
+    if (result > 0) {
+      set_sockfd(result);
+    }
   }
 
-  virtual int RecvFrom(const Context* context) {
-    return 0;
+  virtual void Destory() {
+    if (listen_sockfd() > 0) {
+      Close(listen_sockfd());
+    }
+    if (sockfd() > 0) {
+      Close(sockfd());
+    }
+  }
+
+ protected:
+  int Send(const int sockfd, unsigned char *data, const int length) {
+    return Socket::TcpSend(sockfd, data, length);
+  }
+
+  int Recv(const int sockfd, unsigned char *data, const int length) {
+    return Socket::TcpRecv(sockfd, data, length, kReadTimeout);
+  }
+
+  void Close(const int sockfd) {
+    if (sockfd > 0) {
+      Socket::Close(sockfd);
+    }
   }
 
  private:
-  int ipc_sockfd_;
-  int transfer_pid_;
-  std::string directory_;
-  std::string root_directory_;
-  bool has_abort_;
-  int transfer_mode_;
-  int type_;
+  static const int kReadTimeout = 3000;  // ms
+
 };
 
 #endif /* SRC_MODEL_DEFAULTSESSION_H_ */

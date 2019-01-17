@@ -65,7 +65,15 @@ class Socket {
 
   static int TcpListen(int sockfd, int maxcnt);
 
+  static int CreateServer(int* listen_sockfd);
+
+  static int CreateClient(const unsigned int ip_address,
+                          const unsigned short port);
+
   static int TcpRecv(int sockfd, unsigned char *data, int nbytes);
+
+  static int TcpRecv(int sockfd, unsigned char* data, const int length,
+                     const int timeout/*ms*/);
 
   static int TcpSend(int sockfd, unsigned char *data, int nbytes);
 

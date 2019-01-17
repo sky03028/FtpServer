@@ -139,8 +139,8 @@ int Socket::CheckRecvBuffer(int sockfd) {
   return nbytes;
 }
 
-int Socket::Select(int *SockQueue, int QueueSize, int timeout,
-                            int option, fd_set &optionfds) {
+int Socket::Select(int *SockQueue, int QueueSize, int timeout, int option,
+                   fd_set &optionfds) {
   struct timeval select_timeout;
   int result;
 
@@ -255,12 +255,32 @@ int Socket::TcpServerCreate(const char *lhost, unsigned short lport) {
 
 int Socket::TcpListen(int sockfd, int maxcnt) {
   listen(sockfd, maxcnt);
-
   return 0;
 }
 
-int Socket::TcpAccept(int ServSocket, struct sockaddr *client,
-                            int timeout) {
+int Socket::CreateServer(int* listen_sockfd) {
+  struct in_addr ip_addr;
+  ip_addr.s_addr = Socket::GetLocalAddress();
+  int listen_sd = Socket::TcpServerCreate(inet_ntoa(ip_addr), 0);
+  if (listen_sd == -1) {
+    *listen_sockfd = listen_sd;
+    return -1;
+  }
+  TcpListen(listen_sd, 1);
+  *listen_sockfd = listen_sd;
+
+  struct sockaddr_in remote;
+  return TcpAccept(listen_sd, (struct sockaddr *) &remote, 3000);
+}
+
+int Socket::CreateClient(const unsigned int ip_address,
+                         const unsigned short port) {
+  struct in_addr ip_addr;
+  ip_addr.s_addr = ip_address;
+  return TcpConnect(inet_ntoa(ip_addr), port, 3000);
+}
+
+int Socket::TcpAccept(int ServSocket, struct sockaddr *client, int timeout) {
   fd_set readfds;
   struct timeval select_timeout;
   int result;
@@ -305,8 +325,7 @@ int Socket::TcpAccept(int ServSocket, struct sockaddr *client,
   return -1;
 }
 
-int Socket::TcpConnect(const char *host, unsigned short port,
-                             int timeout) {
+int Socket::TcpConnect(const char *host, unsigned short port, int timeout) {
   if (host == NULL)
     return -1;
 
@@ -411,6 +430,26 @@ int Socket::TcpRecv(int sockfd, unsigned char *data, int nbytes) {
   return total_bytes;
 }
 
+int Socket::TcpRecv(const int sockfd, unsigned char* data, const int length,
+                    const int timeout/*ms*/) {
+  fd_set fds;
+  int nbytes = 0;
+  int result = Select((int*) &sockfd, 1, timeout, READFDS_TYPE, fds);
+  if (result <= 0) {
+    return 0;
+  } else if (result > 0) {
+    if (FD_ISSET(sockfd, &fds)) {
+      nbytes = TcpRecv(sockfd, data, length);
+      if (nbytes <= 0) {
+        if (CheckSockError(sockfd) == EAGAIN) {
+          return -1;
+        }
+      }
+    }
+  }
+  return 0;
+}
+
 int Socket::TcpSend(int sockfd, unsigned char *data, int nbytes) {
   int wbytes;
   int total_bytes = 0;
@@ -502,7 +541,7 @@ int Socket::UdpObjectCreate(const char *lhost, int lport) {
 }
 
 int Socket::UdpRecv(int sockfd, sockaddr *from, unsigned char *data,
-                          int nbytes) {
+                    int nbytes) {
   int rbytes;
   int total_bytes = 0;
   socklen_t socklen = sizeof(struct sockaddr);
@@ -536,7 +575,7 @@ int Socket::UdpRecv(int sockfd, sockaddr *from, unsigned char *data,
 }
 
 int Socket::UdpSend(int sockfd, sockaddr *dest, unsigned char *data,
-                          int nbytes) {
+                    int nbytes) {
   int wbytes;
   int total_bytes = 0;
   int socklen = sizeof(struct sockaddr);

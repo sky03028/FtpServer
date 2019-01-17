@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include "FtpService.h"
 
+#include "../ftp/FtpMaster.h"
+#include "../model/FtpSession.h"
 #include "middleware/Socket.h"
-#include "model/FtpMaster.h"
-#include "model/DefaultSession.h"
 #include "utils/Utils.h"
 
 extern "C" int fork();
@@ -20,7 +20,7 @@ FtpService::FtpService()
 FtpService::~FtpService() {
 }
 
-void FtpService::SplitProcessor(std::shared_ptr<DefaultSession>& session) {
+void FtpService::SplitProcessor(std::shared_ptr<FtpSession>& session) {
   int pid;
 
   pid = fork();
@@ -42,7 +42,7 @@ void FtpService::SplitProcessor(std::shared_ptr<DefaultSession>& session) {
 
 void FtpService::Handler(void *arg) {
   do {
-    std::shared_ptr<DefaultSession> session;
+    std::shared_ptr<FtpSession> session;
     {
       std::unique_lock<std::mutex> lock(mutex_);
       cond_var_.wait(lock, [this] {return !sessions_.empty();});
@@ -99,8 +99,8 @@ int FtpService::Start() {
         Utils::ThreadSleep(1000);
         continue;
       }
-      std::shared_ptr<DefaultSession> session(
-          new DefaultSession(SessionType::kTypeFTP));
+      std::shared_ptr<FtpSession> session(
+          new FtpSession(SessionType::kTypeFTP));
       session->set_listen_sockfd(listen_socket_);
       session->set_sockfd(sd);
       session->set_ip_address(client.sin_addr.s_addr);

@@ -5,25 +5,25 @@
  *      Author: xueda
  */
 
-#ifndef INCLUDE_CORE_NETADAPTER_H_
-#define INCLUDE_CORE_NETADAPTER_H_
+#ifndef INCLUDE_CORE_NETWORKADAPTER_H_
+#define INCLUDE_CORE_NETWORKADAPTER_H_
 
 #include <memory>
 
 class Session;
 class Context;
 
-class NetAdapter {
+class NetworkAdapter {
  public:
-  NetAdapter() = default;
-  virtual ~NetAdapter() = default;
+  NetworkAdapter() = default;
+  virtual ~NetworkAdapter() = default;
 
   virtual int RecvFrom(const std::shared_ptr<Session>& session,
                        Context* context) = 0;
-  virtual void SendTo(const std::shared_ptr<Session>& session,
-                      Context* context) = 0;
+  virtual int SendTo(const std::shared_ptr<Session>& session,
+                     Context* context) = 0;
   virtual void Reply(const std::shared_ptr<Session>& session,
                      const std::string& content) = 0;
 };
 
-#endif /* INCLUDE_CORE_NETADAPTER_H_ */
+#endif /* INCLUDE_CORE_NETWORKADAPTER_H_ */

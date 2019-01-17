@@ -5,8 +5,8 @@
  *      Author: xueda
  */
 
-#ifndef SRC_MODEL_DEFAULTCONTEXT_H_
-#define SRC_MODEL_DEFAULTCONTEXT_H_
+#ifndef SRC_MODEL_FTPCONTEXT_H_
+#define SRC_MODEL_FTPCONTEXT_H_
 
 #include <assert.h>
 #include <string.h>
@@ -126,14 +126,14 @@ class BinaryObject {
   std::mutex mutex_;
 };
 
-class DefaultContext : public Context {
+class FtpContext : public Context {
  public:
-  DefaultContext()
+  FtpContext()
       : source_(Source::kSrcUndefined),
         destination_(Destination::kDestUndefined) {
     object_ = std::make_shared<BinaryObject>();
   }
-  virtual ~DefaultContext() = default;
+  virtual ~FtpContext() = default;
 
   void set_source(const int source) {
     source_ = source;
@@ -162,4 +162,4 @@ class DefaultContext : public Context {
   std::shared_ptr<BinaryObject> object_;
 };
 
-#endif /* SRC_MODEL_DEFAULTCONTEXT_H_ */
+#endif /* SRC_MODEL_FTPCONTEXT_H_ */
