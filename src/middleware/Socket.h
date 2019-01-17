@@ -34,17 +34,17 @@ enum SockIO_type_e {
 class Socket {
  public:
   /* socket methods */
-  static int SocketCreate();
+  static int Create();
 
-  static int SocketClose(int sockfd);
+  static int Close(int sockfd);
 
-  static int SocketTryClose(int sockfd);
+  static int TryClose(int sockfd);
 
   static int SetNonBlock(int sockfd);
 
   static int SetBlock(int sockfd);
 
-  static int IOMonitor(int *, int, int, int, fd_set &);
+  static int Select(int *, int, int, int, fd_set &);
 
   static int CheckSockError(int sockfd);
 

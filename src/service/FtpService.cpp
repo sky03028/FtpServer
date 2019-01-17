@@ -2,7 +2,9 @@
 #include <stdlib.h>
 #include "FtpService.h"
 
-#include "service/FtpWarpper.h"
+#include "middleware/Socket.h"
+#include "model/FtpMaster.h"
+#include "model/DefaultSession.h"
 #include "utils/Utils.h"
 
 extern "C" int fork();
@@ -18,7 +20,7 @@ FtpService::FtpService()
 FtpService::~FtpService() {
 }
 
-void FtpService::SplitProcessor(std::shared_ptr<FtpSession>& session) {
+void FtpService::SplitProcessor(std::shared_ptr<DefaultSession>& session) {
   int pid;
 
   pid = fork();
@@ -26,10 +28,10 @@ void FtpService::SplitProcessor(std::shared_ptr<FtpSession>& session) {
     perror("fork");
   } else if (pid == 0) {
     std::cout << "Ftp Running." << std::endl;
-    FtpWarpper *warpper;
-    warpper = new FtpWarpper();
-    warpper->Setup(*session);
-    delete warpper;
+    FtpMaster *master;
+    master = new FtpMaster();
+    master->Setup(session);
+    delete master;
 
     exit(EXIT_SUCCESS);
   } else if (pid > 0) {
@@ -40,7 +42,7 @@ void FtpService::SplitProcessor(std::shared_ptr<FtpSession>& session) {
 
 void FtpService::Handler(void *arg) {
   do {
-    std::shared_ptr<FtpSession> session;
+    std::shared_ptr<DefaultSession> session;
     {
       std::unique_lock<std::mutex> lock(mutex_);
       cond_var_.wait(lock, [this] {return !sessions_.empty();});
@@ -51,7 +53,7 @@ void FtpService::Handler(void *arg) {
     if (session == nullptr) {
       continue;
     }
-    session->set_root_path("/home/xueda/share/ftpServer");
+    session->set_root_directory("/home/xueda/share/ftpServer");
     session->set_directory("/home/xueda/share/ftpServer");
     SplitProcessor(session);
   } while (running_);
@@ -93,12 +95,12 @@ int FtpService::Start() {
       std::cout << "Get a client" << std::endl;
       /* To the limit count, refuse connect */
       if (sessions_.size() == (unsigned int) max_connected_cnt_) {
-        Socket::SocketClose(sd);
+        Socket::Close(sd);
         Utils::ThreadSleep(1000);
         continue;
       }
-      std::shared_ptr<FtpSession> session(
-          new FtpSession(SessionType::kTypeFTP));
+      std::shared_ptr<DefaultSession> session(
+          new DefaultSession(SessionType::kTypeFTP));
       session->set_listen_sockfd(listen_socket_);
       session->set_sockfd(sd);
       session->set_ip_address(client.sin_addr.s_addr);
@@ -108,7 +110,7 @@ int FtpService::Start() {
       cond_var_.notify_one();
     }
   } while (running_);
-  Socket::SocketClose(listen_socket_);
+  Socket::Close(listen_socket_);
   thread_pool_->ThreadsAsyncJoin();
 
   return 0;

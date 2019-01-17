@@ -8,6 +8,8 @@
 #ifndef INCLUDE_CORE_TRANSFER_H_
 #define INCLUDE_CORE_TRANSFER_H_
 
+#include "NetAdapter.h"
+
 class Transfer : public NetAdapter {
  public:
   Transfer() = default;

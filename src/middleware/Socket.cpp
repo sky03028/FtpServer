@@ -38,7 +38,7 @@ int Socket::SetBlock(int sockfd) {
   return 0;
 }
 
-int Socket::SocketCreate() {
+int Socket::Create() {
   int sockfd;
 
 #if defined(__WIN32__)
@@ -58,7 +58,7 @@ int Socket::SocketCreate() {
   return sockfd;
 }
 
-int Socket::SocketClose(int sockfd) {
+int Socket::Close(int sockfd) {
 
   if (sockfd >= 0) {
 #if defined(__WIN32__)
@@ -139,7 +139,7 @@ int Socket::CheckRecvBuffer(int sockfd) {
   return nbytes;
 }
 
-int Socket::IOMonitor(int *SockQueue, int QueueSize, int timeout,
+int Socket::Select(int *SockQueue, int QueueSize, int timeout,
                             int option, fd_set &optionfds) {
   struct timeval select_timeout;
   int result;
@@ -212,7 +212,7 @@ int Socket::TcpServerCreate(const char *lhost, unsigned short lport) {
   int listenfd;
   struct sockaddr_in ServAddr;
 
-  listenfd = SocketCreate();
+  listenfd = Create();
   assert(listenfd != -1);
 
   memset(&ServAddr, 0, sizeof(ServAddr));
@@ -335,7 +335,7 @@ int Socket::TcpConnect(const char *host, unsigned short port,
   remote.sin_family = AF_INET;
   remote.sin_port = port;
 
-  int sockfd = SocketCreate();
+  int sockfd = Create();
   if (sockfd < 0)
     return -1;
 
@@ -360,7 +360,7 @@ int Socket::TcpConnect(const char *host, unsigned short port,
         break;
     }
 
-    if (IOMonitor(&sockfd, 1, timeout, WRITEFDS_TYPE, fds) <= 0)
+    if (Select(&sockfd, 1, timeout, WRITEFDS_TYPE, fds) <= 0)
       break;
 
     if (FD_ISSET(sockfd, &fds)) {
@@ -375,7 +375,7 @@ int Socket::TcpConnect(const char *host, unsigned short port,
   if (is_connect_ok)
     return sockfd;
 
-  SocketClose(sockfd);
+  Close(sockfd);
 
   return -1;
 }
@@ -476,7 +476,7 @@ int Socket::UdpObjectCreate(const char *lhost, int lport) {
   int ipv4;
   struct sockaddr_in local;
 
-  udp_sd = SocketCreate();
+  udp_sd = Create();
   if (udp_sd < 0)
     return -1;
 

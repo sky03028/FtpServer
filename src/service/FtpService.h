@@ -7,10 +7,9 @@
 #include <condition_variable>
 
 #include "core/Service.h"
-
-#include "model/FtpSession.h"
-#include "middleware/Socket.h"
 #include "utils/Threadpool.h"
+
+class DefaultSession;
 
 class FtpService : public Service {
  public:
@@ -23,7 +22,7 @@ class FtpService : public Service {
  private:
   void Handler(void *arg);
   void Monitor(void *arg);
-  void SplitProcessor(std::shared_ptr<FtpSession>& session);
+  void SplitProcessor(std::shared_ptr<DefaultSession>& session);
 
   int listen_socket_;
   int accecpt_timeout_;
@@ -32,7 +31,7 @@ class FtpService : public Service {
 
   std::mutex mutex_;
   std::condition_variable cond_var_;
-  std::deque<std::shared_ptr<FtpSession>> sessions_;
+  std::deque<std::shared_ptr<DefaultSession>> sessions_;
   std::unique_ptr<ThreadPool> thread_pool_;
   bool running_;
 

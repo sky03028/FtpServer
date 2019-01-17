@@ -18,13 +18,12 @@ class NetAdapter {
   NetAdapter() = default;
   virtual ~NetAdapter() = default;
 
-  virtual std::shared_ptr<Session> CreateSession(const std::string& type) = 0;
-  virtual void RecvFrom(const std::shared_ptr<Session>& session,
-                        Context* context) = 0;
+  virtual int RecvFrom(const std::shared_ptr<Session>& session,
+                       Context* context) = 0;
   virtual void SendTo(const std::shared_ptr<Session>& session,
                       Context* context) = 0;
-  virtual void Reply(const std::shared_ptr<Session>& session, const int code,
-                     std::string& content) = 0;
+  virtual void Reply(const std::shared_ptr<Session>& session,
+                     const std::string& content) = 0;
 };
 
 #endif /* INCLUDE_CORE_NETADAPTER_H_ */

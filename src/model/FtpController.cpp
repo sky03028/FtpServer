@@ -5,8 +5,22 @@
  *      Author: xueda
  */
 
-#include "model/FtpController.h"
+#include <sys/stat.h>
+#include <signal.h>
+#include <assert.h>
+#include <unordered_map>
+#include <thread>
+
 #include "defines/FtpCodes.h"
+
+#include "model/DefaultSession.h"
+#include "model/DefaultContext.h"
+#include "model/FtpController.h"
+#include "utils/CodeConverter.h"
+#include "utils/JsonParser.h"
+#include "utils/Utils.h"
+#include "utils/JsonCreator.h"
+#include "middleware/Socket.h"
 
 FtpController::FtpController() {
 
@@ -15,51 +29,307 @@ FtpController::FtpController() {
 FtpController::~FtpController() {
 }
 
+bool FtpController::Init() {
+  std::cout << __FUNCTION__ << std::endl;
+  handlers_["ABOR"] = std::bind(&FtpController::ftp_abor, this,
+                                std::placeholders::_1, std::placeholders::_2);
+  handlers_["LIST"] = std::bind(&FtpController::ftp_list, this,
+                                std::placeholders::_1, std::placeholders::_2);
+  handlers_["PASS"] = std::bind(&FtpController::ftp_pass, this,
+                                std::placeholders::_1, std::placeholders::_2);
+  handlers_["PORT"] = std::bind(&FtpController::ftp_port, this,
+                                std::placeholders::_1, std::placeholders::_2);
+  handlers_["PASV"] = std::bind(&FtpController::ftp_pasv, this,
+                                std::placeholders::_1, std::placeholders::_2);
+  handlers_["QUIT"] = std::bind(&FtpController::ftp_quit, this,
+                                std::placeholders::_1, std::placeholders::_2);
+  handlers_["RETR"] = std::bind(&FtpController::ftp_retr, this,
+                                std::placeholders::_1, std::placeholders::_2);
+  handlers_["STOR"] = std::bind(&FtpController::ftp_stor, this,
+                                std::placeholders::_1, std::placeholders::_2);
+  handlers_["SYST"] = std::bind(&FtpController::ftp_syst, this,
+                                std::placeholders::_1, std::placeholders::_2);
+  handlers_["TYPE"] = std::bind(&FtpController::ftp_type, this,
+                                std::placeholders::_1, std::placeholders::_2);
+  handlers_["USER"] = std::bind(&FtpController::ftp_user, this,
+                                std::placeholders::_1, std::placeholders::_2);
+  handlers_["CWD"] = std::bind(&FtpController::ftp_cwd, this,
+                               std::placeholders::_1, std::placeholders::_2);
+  handlers_["FEAT"] = std::bind(&FtpController::ftp_feat, this,
+                                std::placeholders::_1, std::placeholders::_2);
+  handlers_["REST"] = std::bind(&FtpController::ftp_rest, this,
+                                std::placeholders::_1, std::placeholders::_2);
+  handlers_["PWD"] = std::bind(&FtpController::ftp_pwd, this,
+                               std::placeholders::_1, std::placeholders::_2);
+  handlers_["CDUP"] = std::bind(&FtpController::ftp_cdup, this,
+                                std::placeholders::_1, std::placeholders::_2);
+  return true;
+}
+
+/* parent processer(ftp-control) */
+int FtpController::ControlHandler(
+    const std::shared_ptr<DefaultSession> &session) {
+  int nbytes;
+  char buffer[2048];
+  int sockfd_list[2];
+
+  memset(buffer, 0, sizeof(buffer));
+
+  ReplyClient(
+      session, FTP_GREET,
+      "Environment: Linux system. Used UNIX BSD Socket. (FtpServer ver. 0.1)");
+
+  fd_set fds;
+  sockfd_list[0] = session->sockfd();
+  sockfd_list[1] = session->ipc_sockfd();
+
+  std::unique_ptr<DefaultContext> context(new DefaultContext());
+  do {
+
+    memset(buffer, 0, sizeof(buffer));
+    nbytes = Socket::Select(sockfd_list, sizeof(sockfd_list) / sizeof(int), 100,
+                            READFDS_TYPE, fds);
+    if (nbytes == 0) {
+      continue;
+    } else if (nbytes > 0) {
+
+      // clients request
+      if (FD_ISSET(session->sockfd(), &fds)) {
+//        nbytes = Socket::TcpReadLine(session->sockfd(), buffer, sizeof(buffer));
+        context->set_source(Source::kSrcClient);
+        nbytes = RecvFrom(session, context.get());
+        if (nbytes <= 0) {
+          if (Socket::CheckSockError(session->sockfd()) == EAGAIN) {
+            continue;
+          }
+
+          perror("FTPControlHandler ----> TcpReadOneLine");
+          Socket::Close(session->sockfd());
+          Socket::Close(session->ipc_sockfd());
+
+          std::this_thread::sleep_for(std::chrono::seconds(1));
+          /* kill ftp-data processer */
+          kill(session->transfer_pid(), SIGTERM);
+
+          break;
+        } else {
+          std::unique_ptr<DefaultContext> ctx(new DefaultContext());
+          ctx->set_content(std::string(buffer));
+          CommandHandler(session, ctx.get());
+        }
+      }
+
+      /* IPC ftp-control process */
+      if (FD_ISSET(session->ipc_sockfd(), &fds)) {
+//        nbytes = RecvInstruction(session.ipc_ctrl_sockfd(), instruction);
+        context->set_source(Source::kSrcTransfer);
+        nbytes = RecvFrom(session, context.get());
+        if (nbytes <= 0) {
+          if (Socket::CheckSockError(session->ipc_sockfd()) == EAGAIN) {
+            continue;
+          }
+
+          perror("FTPControlHandler ---> IPC_RecvInstruction");
+          Socket::Close(session->ipc_sockfd());
+          Socket::Close(session->sockfd());
+
+          std::this_thread::sleep_for(std::chrono::seconds(1));
+
+          /* kill ftp-data processer */
+          kill(session->transfer_pid(), SIGTERM);
+
+          break;
+        } else {
+          ReplyHandler(session, context.get());
+        }
+      }
+
+    }
+
+  } while (1);
+
+  return 0;
+}
+
+int FtpController::CommandHandler(
+    const std::shared_ptr<DefaultSession> &session, DefaultContext* context) {
+  char command[5];
+  char content[2048];
+
+  memset(command, 0, sizeof(command));
+  memset(content, 0, sizeof(content));
+
+  memcpy(command, context->content().c_str(), sizeof(command) - 1);
+  memcpy(content, context->content().c_str() + 4,
+         context->content().size() - 4);
+
+  std::string ftpcommand = std::string(command);
+  ftpcommand = Utils::DeleteSpace(ftpcommand);
+  ftpcommand = Utils::DeleteCRLF(ftpcommand);
+
+  std::cout << context->content() << std::endl;
+  if (handlers_.count(ftpcommand) == 0) {
+    ReplyClient(session, FTP_COMMANDNOTIMPL, "Not Support Now.");
+    return -1;
+  }
+  auto& function = handlers_[ftpcommand];
+  function(session, context);
+
+  return 0;
+}
+
+void FtpController::ReplyHandler(const std::shared_ptr<DefaultSession> &session,
+                                 DefaultContext* context) {
+  int resp_code;
+  std::string reply_content;
+
+  JsonParser parser(context->content());
+  int cmd_type = parser.GetInt("cmdtype");
+  bool success = parser.GetBool("status");
+
+  switch (cmd_type) {
+    case TRANSFER_PORT_STANDBY_RES: {
+      std::cout << "TRANSFER_PORT_STANDBY_RES" << std::endl;
+
+      if (success) {
+        reply_content = std::string(context->content());
+        resp_code = FTP_PORTOK;
+      } else {
+        reply_content = "Fail to Enter Port Mode.";
+        resp_code = FTP_IP_LIMIT;
+      }
+    }
+      break;
+
+    case TRANSFER_PASV_STANDBY_RES: {
+      std::cout << "TRANSFER_PASV_STANDBY_RES" << std::endl;
+
+      if (success) {
+        reply_content = std::string(context->content());
+        resp_code = FTP_PASVOK;
+      } else {
+        reply_content = "Fail to Enter Passive Mode.";
+        resp_code = FTP_IP_LIMIT;
+      }
+    }
+      break;
+
+    case TRANSFER_SENDCOMMAND_RES: {
+      std::cout << "TRANSFER_SENDCOMMAND_RES" << std::endl;
+      if (success) {
+        reply_content = std::string(context->content());
+        resp_code = FTP_TRANSFEROK;
+      } else {
+        reply_content = "Transfer fail.";
+        resp_code = FTP_BADSENDFILE;
+      }
+    }
+      break;
+
+    case TRANSFER_FILEDOWNLOAD_RES: {
+      std::cout << "TRANSFER_FILEDOWNLOAD_RES" << std::endl;
+      if (success) {
+        reply_content = std::string(context->content());
+        resp_code = FTP_TRANSFEROK;
+      } else {
+        reply_content = "Transfer fail.";
+        resp_code = FTP_BADSENDFILE;
+      }
+    }
+      break;
+
+    case TRANSFER_FILEUPLOAD_RES: {
+      std::cout << "TRANSFER_FILEUPLOAD_RES" << std::endl;
+      if (success) {
+        reply_content = std::string(context->content());
+        resp_code = FTP_TRANSFEROK;
+      } else {
+        reply_content = "Transfer fail.";
+        resp_code = FTP_BADSENDFILE;
+      }
+    }
+      break;
+
+    default: {
+      resp_code = 0;
+      reply_content.clear();
+    }
+      break;
+
+  }
+
+  if (reply_content.size() > 0) {
+    reply_content = Utils::DeleteCRLF(reply_content);
+    ReplyClient(session, resp_code, reply_content);
+  }
+
+}
+
+int FtpController::ReplyClient(const std::shared_ptr<DefaultSession> &session,
+                               int code, const std::string& content) {
+  std::string packed_content;
+  if (code > 0) {
+    packed_content = std::to_string(code) + " " + content + "\r\n";
+  } else {
+    if (content.size() > 0) {
+      packed_content = std::string(content) + "\r\n";
+    }
+  }
+
+  if (packed_content.size() > 0) {
+    Reply(session, packed_content);
+  }
+  return 0;
+}
+
+int FtpController::NotifyTransfer(
+    const std::shared_ptr<DefaultSession>& session, DefaultContext* context) {
+  SendTo(session, context);
+  return 0;
+}
+
 /* ftp contorl processer handler */
-int FtpController::ftp_cwd(const std::shared_ptr<FtpSession> &session,
+int FtpController::ftp_cwd(const std::shared_ptr<DefaultSession> &session,
                            DefaultContext *context) {
   std::string reply_content;
 
-  std::string ftp_path = std::string(context);
+  assert(context->content_type() == ContentType::kString);
+  std::string path = context->content();
 
   int errcode;
-  struct stat fileStat;
+  struct stat file_stat;
 
-  char out[CONVEROUTLEN];
+  char out[CodeConverter::kMaxConvertSize];
 
   memset(out, 0, sizeof(out));
 
   CodeConverter cc("GB2312", "UTF-8");
+  cc.convert((char *) path.c_str(), path.length(), out,
+             CodeConverter::kMaxConvertSize);
 
-  cc.convert((Context *) ftp_path.c_str(), strlen(ftp_path.c_str()), out,
-             CONVEROUTLEN);
+  path = std::string(out);
+  path = Utils::DeleteSpace(path);
+  path = Utils::DeleteCRLF(path);
 
-  ftp_path = std::string(out);
-
-  ftp_path = Utils::DeleteSpace(ftp_path);
-  ftp_path = Utils::DeleteCRLF(ftp_path);
-
-  std::string temp = session.directory();
-
-  if (ftp_path.size() < session.root_path().size()) {
-    ftp_path = session.root_path();
+  std::string directory = session->directory();
+  if (path.size() < session->root_directory().size()) {
+    path = session->root_directory();
   }
 
-  if (Utils::CheckSymbolExsit(ftp_path, '/') == -1) {
-    if (temp.at(temp.size() - 1) != '/') {
-      temp += "/";
+  if (Utils::CheckSymbolExsit(path, '/') == -1) {
+    if (directory.at(directory.size() - 1) != '/') {
+      directory += "/";
     }
-    ftp_path = temp + ftp_path;
+    path = directory + path;
   }
+  session->set_directory(path);
 
-  session.set_directory(ftp_path);
+  std::cout << "CWD : " << path << std::endl;
 
-  std::cout << "__CWD : " << ftp_path << std::endl;
-
-  if (0 == stat(ftp_path.c_str(), &fileStat)) {
-    if (S_ISDIR(fileStat.st_mode)) {
+  if (0 == stat(path.c_str(), &file_stat)) {
+    if (S_ISDIR(file_stat.st_mode)) {
       errcode = FTP_CWDOK;
-      reply_content = "Directory changed to " + ftp_path;
+      reply_content = "Directory changed to " + path;
     } else {
       errcode = FTP_CWDOK;
     }
@@ -68,247 +338,264 @@ int FtpController::ftp_cwd(const std::shared_ptr<FtpSession> &session,
     errcode = FTP_NOPERM;
   }
 
-  return Reply(session, errcode, reply_content);
+  return ReplyClient(session, errcode, reply_content);
 }
 
-int FtpController::ftp_abor(const std::shared_ptr<FtpSession> &session,
+int FtpController::ftp_abor(const std::shared_ptr<DefaultSession> &session,
                             DefaultContext *context) {
-  FtpInstruction instruction;
+  JsonCreator creator;
+  creator.SetInt("cmdtype", TRANSFER_ABORT_REQ);
+  creator.SetBool("status", true);
+  creator.SerializeAsString();
 
-  instruction.clear();
-
-  instruction.setInsExecFlag(true);
-  instruction.setInsType(TRANSFER_ABORT_REQ);
-
-  SendInstruction(session->ipc_ctrl_sockfd(), instruction);
-  if (session->type() == SessionType::kTypeFTP) {
-    std::shared_ptr<FtpSession> ftp_session = std::static_pointer_cast<
-        FtpSession>(session);
-  }
-  Reply(session, FTP_ABOROK, std::string("Abort ok."));
-
+  context->set_destination(Destination::kDestTransfer);
+  context->set_content_type(ContentType::kJson);
+  context->set_content(creator.SerializeAsString());
+  NotifyTransfer(session, context);
+  ReplyClient(session, FTP_ABOROK, std::string("Abort ok."));
   return 0;
 }
 
-int FtpController::ftp_list(const std::shared_ptr<FtpSession> &session,
+int FtpController::ftp_list(const std::shared_ptr<DefaultSession> &session,
                             DefaultContext *context) {
-  FtpInstruction instruction;
-
   /* 1. try to notice the ftp-data processer to connect */
-  instruction.clear();
+  {
+    JsonCreator creator;
+    creator.SetInt("cmdtype", TRANSFER_TRY_CONNNECT_REQ);
+    creator.SetBool("status", true);
+    creator.SerializeAsString();
 
-  instruction.setInsExecFlag(true);
-  instruction.setInsType(TRANSFER_TRY_CONNNECT_REQ);
-
-  SendInstruction(session.ipc_ctrl_sockfd(), instruction);
-  Reply(session, FTP_DATACONN,
-        std::string("Opening ASCII mode data connection for /bin/ls"));
+    context->set_destination(Destination::kDestTransfer);
+    context->set_content_type(ContentType::kJson);
+    context->set_content(creator.SerializeAsString());
+    SendTo(session, context);
+  }
+  ReplyClient(session, FTP_DATACONN,
+              std::string("Opening ASCII mode data connection for /bin/ls"));
 
   /* 2. try to send command back to client */
-  std::string filePath;
-  filePath = session.directory();
+  std::string directory;
+  directory = session->directory();
 
-  std::cout << "__FTP_LIST :  filePath = " << filePath << std::endl;
-  if (filePath.at(filePath.size() - 1) != '/')
-    filePath += "/";
+  std::cout << "FTP_LIST :  directory = " << directory << std::endl;
+  if (directory.at(directory.size() - 1) != '/') {
+    directory += "/";
+  }
+  std::string dirlist = Utils::GetListString(directory);
 
-  std::string DirListString = Utils::GetListString(filePath);
+  {
+    JsonCreator creator;
+    creator.SetBool("status", true);
+    creator.SetInt("cmdtype", TRANSFER_SENDCOMMAND_REQ);
+    creator.SetString("dirlist", dirlist);
 
-  instruction.clear();
-
-  instruction.setInsExecFlag(true);
-  instruction.setInsType(TRANSFER_SENDCOMMAND_REQ);
-  instruction.setInsContent(DirListString.c_str(), DirListString.size());
-  instruction.setInsContentLength(DirListString.size());
-
-  return SendInstruction(session.ipc_ctrl_sockfd(), instruction);
-
+    context->set_content_type(ContentType::kJson);
+    context->set_content(creator.SerializeAsString());
+    context->set_destination(Destination::kDestTransfer);
+    SendTo(session, context);
+  }
+  return 0;
 }
 
-int FtpController::ftp_pass(const std::shared_ptr<FtpSession> &session,
+int FtpController::ftp_pass(const std::shared_ptr<DefaultSession> &session,
                             DefaultContext *context) {
-  std::string password(context);
-  password = Utils::DeleteSpace(password);
-  session.set_password(password);
+  // ... 校验密码
+
   std::string reply_content =
       "Welcome to my ftpServer . Author: fengxueda531@163.com.";
 
-  return Reply(session, FTP_LOGINOK, reply_content);
+  return ReplyClient(session, FTP_LOGINOK, reply_content);
 }
 
-int FtpController::ftp_port(const std::shared_ptr<FtpSession> &session,
+int FtpController::ftp_port(const std::shared_ptr<DefaultSession> &session,
                             DefaultContext *context) {
-  FtpInstruction instruction;
+  std::string content;
+  if (context->content_type() == ContentType::kString) {
+    content = context->content();
+  }
 
-  instruction.clear();
+  {
+    JsonCreator creator;
+    creator.SetBool("status", true);
+    creator.SetInt("cmdtype", TRANSFER_PORT_STANDBY_REQ);
+    creator.SetString("content", content);
 
-  instruction.setInsType(TRANSFER_PORT_STANDBY_REQ);
-  instruction.setInsExecFlag(true);
-  instruction.setInsContent(context, strlen(context));
-  instruction.setInsContentLength(strlen(context));
-
-  /* send connect request to ftp-data processer */
-  SendInstruction(session.ipc_ctrl_sockfd(), instruction);
+    context->set_destination(Destination::kDestTransfer);
+    context->set_content_type(ContentType::kJson);
+    context->set_content(creator.SerializeAsString());
+    NotifyTransfer(session, context);
+  }
   return 0;
 }
 
-int FtpController::ftp_quit(const std::shared_ptr<FtpSession> &session,
+int FtpController::ftp_quit(const std::shared_ptr<DefaultSession> &session,
                             DefaultContext *context) {
   std::string ReplyContent = "Goodbye";
-
-  Reply(session, FTP_GOODBYE, ReplyContent);
-
+  ReplyClient(session, FTP_GOODBYE, ReplyContent);
   //exit(EXIT_SUCCESS);
 
   return 0;
 }
 
-int FtpController::ftp_retr(const std::shared_ptr<FtpSession> &session,
+int FtpController::ftp_retr(const std::shared_ptr<DefaultSession> &session,
                             DefaultContext *context) {
-  FtpInstruction instruction;
-
-  /* 1. try to notice the ftp-data processer to connect */
-  instruction.clear();
-
-  instruction.setInsExecFlag(true);
-  instruction.setInsType(TRANSFER_TRY_CONNNECT_REQ);
-
-  SendInstruction(session.ipc_ctrl_sockfd(), instruction);
-
-  /*2. try to send file to client */
-  std::string temp;
-  std::string filePath = std::string(context);
-
-  instruction.clear();
-
-  instruction.setInsExecFlag(true);
-  instruction.setInsType(TRANSFER_FILEDOWNLOAD_REQ);
-  filePath = Utils::DeleteSpace(filePath);
-  filePath = Utils::DeleteCRLF(filePath);
-
-  temp = session.directory();
-  if (temp.at(temp.size() - 1) != '/') {
-    filePath = temp + "/" + filePath;
-  } else {
-    filePath = temp + filePath;
+  std::string cur_directory;
+  std::string directory;
+  if (context->content_type() == ContentType::kString) {
+    directory = context->content();
+    directory = Utils::DeleteSpace(directory);
+    directory = Utils::DeleteCRLF(directory);
   }
 
-  instruction.setInsContent(filePath.c_str(), filePath.size());
-  instruction.setInsContentLength(filePath.size());
-
-  return SendInstruction(session.ipc_ctrl_sockfd(), instruction);
-}
-
-int FtpController::ftp_stor(const std::shared_ptr<FtpSession> &session,
-                            DefaultContext *context) {
-  FtpInstruction instruction;
+  cur_directory = session->directory();
+  if (cur_directory.at(cur_directory.size() - 1) != '/') {
+    directory = cur_directory + "/" + directory;
+  } else {
+    directory = cur_directory + directory;
+  }
 
   /* 1. try to notice the ftp-data processer to connect */
-  instruction.clear();
+  {
+    JsonCreator creator;
+    creator.SetBool("status", true);
+    creator.SetInt("cmdtype", TRANSFER_TRY_CONNNECT_REQ);
 
-  instruction.setInsExecFlag(true);
-  instruction.setInsType(TRANSFER_TRY_CONNNECT_REQ);
-
-  SendInstruction(session.ipc_ctrl_sockfd(), instruction);
+    context->set_destination(Destination::kDestTransfer);
+    context->set_content_type(ContentType::kJson);
+    context->set_content(creator.SerializeAsString());
+    NotifyTransfer(session, context);
+  }
 
   /*2. try to send file to client */
+  {
+    JsonCreator creator;
+    creator.SetBool("status", true);
+    creator.SetInt("cmdtype", TRANSFER_FILEDOWNLOAD_REQ);
+    creator.SetString("content", directory);
 
-  std::string filePath = std::string(context);
-
-  instruction.clear();
-
-  instruction.setInsExecFlag(true);
-  instruction.setInsType(TRANSFER_FILEUPLOAD_REQ);
-  filePath = Utils::DeleteSpace(filePath);
-  filePath = Utils::DeleteCRLF(filePath);
-  filePath = "./" + filePath;
-  instruction.setInsContent(filePath.c_str(), filePath.size());
-  instruction.setInsContentLength(filePath.size());
-
-  return SendInstruction(session.ipc_ctrl_sockfd(), instruction);
-}
-
-int FtpController::ftp_syst(const std::shared_ptr<FtpSession> &session,
-                            DefaultContext *context) {
-  const std::string reply_content = "UNIX Type: L8";
-  return Reply(session, FTP_SYSTOK, reply_content);
-}
-
-int FtpController::ftp_type(const std::shared_ptr<FtpSession> &session,
-                            DefaultContext *context) {
-  std::string format(context);
-  format = Utils::DeleteSpace(format);
-
-  std::string reply_content;
-  reply_content = "Type set to " + format;
-
-  return Reply(session, FTP_TYPEOK, reply_content);
-}
-
-int FtpController::ftp_user(const std::shared_ptr<FtpSession> &session,
-                            DefaultContext *context) {
-  std::string username(context);
-
-  username = Utils::DeleteSpace(username);
-
-  session.set_user_name(username);
-
-  return Reply(session, FTP_GIVEPWORD, "User name okay, need password.");
-}
-
-int FtpController::ftp_pasv(const std::shared_ptr<FtpSession> &session,
-                            DefaultContext *context) {
-  FtpInstruction instruction;
-
-  instruction.clear();
-
-  instruction.setInsExecFlag(true);
-  instruction.setInsType(TRANSFER_PASV_STANDBY_REQ);
-  instruction.setInsContentLength(0);
-
-  SendInstruction(session.ipc_ctrl_sockfd(), instruction);
+    context->set_destination(Destination::kDestTransfer);
+    context->set_content_type(ContentType::kJson);
+    context->set_content(creator.SerializeAsString());
+    NotifyTransfer(session, context);
+  }
 
   return 0;
 }
 
-int FtpController::ftp_feat(const std::shared_ptr<FtpSession> &session,
+int FtpController::ftp_stor(const std::shared_ptr<DefaultSession> &session,
+                            DefaultContext *context) {
+  std::string directory;
+  if (context->content_type() == ContentType::kString) {
+    directory = context->content();
+    directory = Utils::DeleteSpace(directory);
+    directory = Utils::DeleteCRLF(directory);
+    directory = "./" + directory;
+  }
+
+  /* 1. try to notice the ftp-data processer to connect */
+  {
+    JsonCreator creator;
+    creator.SetBool("status", true);
+    creator.SetInt("cmdtype", TRANSFER_TRY_CONNNECT_REQ);
+
+    context->set_destination(Destination::kDestTransfer);
+    context->set_content_type(ContentType::kJson);
+    context->set_content(creator.SerializeAsString());
+    NotifyTransfer(session, context);
+  }
+
+  /*2. try to send file to client */
+  {
+    JsonCreator creator;
+    creator.SetBool("status", true);
+    creator.SetInt("cmdtype", TRANSFER_FILEUPLOAD_REQ);
+    creator.SetString("directory", directory);
+
+    context->set_destination(Destination::kDestTransfer);
+    context->set_content_type(ContentType::kJson);
+    context->set_content(creator.SerializeAsString());
+    NotifyTransfer(session, context);
+  }
+
+  return 0;
+}
+
+int FtpController::ftp_syst(const std::shared_ptr<DefaultSession> &session,
+                            DefaultContext *context) {
+  const std::string reply_content = "UNIX Type: L8";
+  ReplyClient(session, FTP_SYSTOK, reply_content);
+  return 0;
+}
+
+int FtpController::ftp_type(const std::shared_ptr<DefaultSession> &session,
+                            DefaultContext *context) {
+  std::string format;
+  if (context->content_type() == ContentType::kString) {
+    format = context->content();
+    format = Utils::DeleteSpace(format);
+  }
+  std::string reply_content;
+  reply_content = "Type set to " + format;
+  ReplyClient(session, FTP_TYPEOK, reply_content);
+  return 0;
+}
+
+int FtpController::ftp_user(const std::shared_ptr<DefaultSession> &session,
+                            DefaultContext *context) {
+  // 校验用户名 ...
+  return ReplyClient(session, FTP_GIVEPWORD, "User name okay, need password.");
+}
+
+int FtpController::ftp_pasv(const std::shared_ptr<DefaultSession> &session,
+                            DefaultContext *context) {
+  JsonCreator creator;
+  creator.SetBool("status", true);
+  creator.SetInt("cmdtype", TRANSFER_PASV_STANDBY_REQ);
+
+  context->set_destination(Destination::kDestTransfer);
+  context->set_content_type(ContentType::kJson);
+  context->set_content(creator.SerializeAsString());
+  NotifyTransfer(session, context);
+  return 0;
+}
+
+int FtpController::ftp_feat(const std::shared_ptr<DefaultSession> &session,
                             DefaultContext *context) {
   const std::string reply_content = "Not support this command";
-  return Reply(session, FTP_COMMANDNOTIMPL, reply_content);
+  ReplyClient(session, FTP_COMMANDNOTIMPL, reply_content);
+  return 0;
 }
 
-int FtpController::ftp_rest(const std::shared_ptr<FtpSession> &session,
+int FtpController::ftp_rest(const std::shared_ptr<DefaultSession> &session,
                             DefaultContext *context) {
   const std::string ReplyContent = "Reset ok!";
-  return Reply(session, FTP_RESTOK, ReplyContent);
+  ReplyClient(session, FTP_RESTOK, ReplyContent);
+  return 0;
 }
 
-int FtpController::ftp_pwd(const std::shared_ptr<FtpSession> &session,
+int FtpController::ftp_pwd(const std::shared_ptr<DefaultSession> &session,
                            DefaultContext *context) {
   std::string reply_content;
-  std::string directory;
-
-  directory = "\"" + session.directory() + "\"";
+  std::string directory = "\"" + session->directory() + "\"";
   reply_content = directory + " is current directory.";
-  return Reply(session, FTP_PWDOK, reply_content);
+  ReplyClient(session, FTP_PWDOK, reply_content);
+  return 0;
 }
 
-int FtpController::ftp_cdup(const std::shared_ptr<FtpSession> &session,
+int FtpController::ftp_cdup(const std::shared_ptr<DefaultSession> &session,
                             DefaultContext *context) {
   std::string reply_content;
   std::string directory;
 
   directory = session->directory();
   directory = Utils::GetLastDirPath(directory);
-
-  if (directory.size() < session.root_path().size())
-    directory = session.root_path();
-
-  std::cout << "__FTP_CDUP : " << directory << std::endl;
-
-  session.set_directory(directory);
-
+  if (directory.size() < session->root_directory().size()) {
+    directory = session->root_directory();
+  }
+  session->set_directory(directory);
+  std::cout << "FTP_CDUP : " << directory << std::endl;
   reply_content = "Directory changed to " + directory;
 
-  return Reply(session, FTP_CWDOK, reply_content);
+  ReplyClient(session, FTP_CWDOK, reply_content);
+  return 0;
 }

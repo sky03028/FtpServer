@@ -4,10 +4,10 @@
 #include <iconv.h>
 #include <iostream>
 
-#define CONVEROUTLEN 255
-
 class CodeConverter {
  public:
+  static const int kMaxConvertSize = 255;
+
   CodeConverter(const char *from_charset, const char *to_charset) {
     cd = iconv_open(to_charset, from_charset);
   }

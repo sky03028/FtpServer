@@ -5,7 +5,7 @@ TARGET = ftpserver
 CFLAGS = -std=c++11 -g -Wall
 INCLUDES = -I./src -I./include
 SRCS := $(shell find . -name "*.cpp")
-LIBS = -pthread 
+LIBS = -pthread -lcjson 
 LOG := log
 
 $(TARGET) : $(SRCS) 

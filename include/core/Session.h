@@ -10,6 +10,8 @@
 #include <mutex>
 #endif
 
+class Context;
+
 class SessionType {
  public:
   static const int kTypeUndefined = 0;
@@ -62,20 +64,15 @@ class Session {
     listen_sockfd_ = listen_sockfd;
   }
 
-  virtual int type() const = 0;
-
   const std::mutex& mutex() const {
     return mutex_;
   }
 
-  Session & operator =(Session &session) {
-    sockfd_ = session.sockfd_;
-    ip_address_ = session.ip_address_;
-    port_ = session.port_;
-    timeout_ = session.timeout_;
-    return (*this);
-  }
+  virtual int type() const = 0;
 
+  virtual int SendTo(const Context* context) = 0;
+
+  virtual int RecvFrom(const Context* context) = 0;
  private:
   int sockfd_;
   unsigned int ip_address_;
