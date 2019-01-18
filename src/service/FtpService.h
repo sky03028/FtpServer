@@ -9,9 +9,13 @@
 #include "core/Service.h"
 #include "utils/Threadpool.h"
 
+namespace ftp {
 class FtpSession;
+}
 
-class FtpService : public Service {
+namespace service {
+
+class FtpService : public model::Service {
  public:
   FtpService();
   ~FtpService();
@@ -22,7 +26,7 @@ class FtpService : public Service {
  private:
   void Handler(void *arg);
   void Monitor(void *arg);
-  void SplitProcessor(std::shared_ptr<FtpSession>& session);
+  void SplitProcessor(std::shared_ptr<ftp::FtpSession>& session);
 
   int listen_socket_;
   int accecpt_timeout_;
@@ -31,11 +35,13 @@ class FtpService : public Service {
 
   std::mutex mutex_;
   std::condition_variable cond_var_;
-  std::deque<std::shared_ptr<FtpSession>> sessions_;
+  std::deque<std::shared_ptr<ftp::FtpSession>> sessions_;
   std::unique_ptr<ThreadPool> thread_pool_;
   bool running_;
 
   static const int kFtpServicePort = 21;
 };
+
+}
 
 #endif // SERVICE_H

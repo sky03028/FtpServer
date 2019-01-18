@@ -10,12 +10,14 @@
 #include <assert.h>
 #include <sys/sendfile.h>
 
-#include "../model/FtpContext.h"
-#include "../model/FtpSession.h"
+#include "core/FtpContext.h"
+#include "core/FtpSession.h"
 #include "utils/JsonParser.h"
 #include "utils/JsonCreator.h"
 #include "utils/Utils.h"
 #include "middleware/Socket.h"
+
+namespace ftp {
 
 FtpDataTransfer::FtpDataTransfer() {
 
@@ -43,7 +45,7 @@ void FtpDataTransfer::TransferHandler(
     }
 
     if (result > 0) {
-      assert(context->content_type() == ContentType::kJson);
+      assert(context->content_type() == model::ContentType::kJson);
       int cmdtype;
       {
         JsonParser parser(context->content());
@@ -138,7 +140,7 @@ int FtpDataTransfer::PasvModeStandby(const std::shared_ptr<FtpSession> &session,
 
   } while (0);
 
-  context->set_content_type(ContentType::kJson);
+  context->set_content_type(model::ContentType::kJson);
   context->set_content(creator.SerializeAsString());
   ReplyController(session, context);
   return 0;
@@ -152,7 +154,7 @@ int FtpDataTransfer::PortModeStandby(const std::shared_ptr<FtpSession> &session,
   unsigned int p_port[2];
   unsigned int p_ipaddress[4];
 
-  assert(context->content_type() == ContentType::kJson);
+  assert(context->content_type() == model::ContentType::kJson);
   JsonParser parser(context->content());
 
   std::string request_content(parser.GetString("content"));
@@ -181,7 +183,7 @@ int FtpDataTransfer::PortModeStandby(const std::shared_ptr<FtpSession> &session,
   creator.SetString("content", reply_content);
   session->set_transfer_mode(PORT_MODE_ENABLE);
 
-  context->set_content_type(ContentType::kJson);
+  context->set_content_type(model::ContentType::kJson);
   context->set_content(creator.SerializeAsString());
   ReplyController(session, context);
   return 0;
@@ -206,7 +208,7 @@ int FtpDataTransfer::TrySendCommand(const std::shared_ptr<FtpSession> &session,
     creator.SetBool("status", false);
   }
 
-  context->set_content_type(ContentType::kJson);
+  context->set_content_type(model::ContentType::kJson);
   context->set_content(creator.SerializeAsString());
   ReplyController(session, context);
   return 0;
@@ -251,7 +253,7 @@ int FtpDataTransfer::TryContact(const std::shared_ptr<FtpSession> &session,
     creator.SetBool("status", false);
   }
 
-  context->set_content_type(ContentType::kJson);
+  context->set_content_type(model::ContentType::kJson);
   context->set_content(creator.SerializeAsString());
   ReplyController(session, context);
   return 0;
@@ -267,7 +269,7 @@ int FtpDataTransfer::TryFileDownload(const std::shared_ptr<FtpSession> &session,
   std::string reply_content;
   bool success = false;
 
-  assert(context->content_type() == ContentType::kJson);
+  assert(context->content_type() == model::ContentType::kJson);
   {
     JsonParser parser(context->content());
     filepath = parser.GetString("content");
@@ -361,7 +363,7 @@ int FtpDataTransfer::TryFileDownload(const std::shared_ptr<FtpSession> &session,
   creator.SetBool("status", success);
   creator.SetString("content", reply_content);
 
-  context->set_content_type(ContentType::kJson);
+  context->set_content_type(model::ContentType::kJson);
   context->set_content(creator.SerializeAsString());
   ReplyController(session, context);
   return 0;
@@ -376,7 +378,7 @@ int FtpDataTransfer::TryFileUpload(const std::shared_ptr<FtpSession> &session,
   int total_bytes = 0;
   int success = false;
 
-  assert(context->content_type() == ContentType::kJson);
+  assert(context->content_type() == model::ContentType::kJson);
   {
     JsonParser parser(context->content());
     filepath = parser.GetString("content");
@@ -461,7 +463,7 @@ int FtpDataTransfer::TryFileUpload(const std::shared_ptr<FtpSession> &session,
   creator.SetBool("status", success);
   creator.SetString("content", reply_content);
 
-  context->set_content_type(ContentType::kJson);
+  context->set_content_type(model::ContentType::kJson);
   context->set_content(creator.SerializeAsString());
   ReplyController(session, context);
   return 0;
@@ -477,5 +479,7 @@ void FtpDataTransfer::ReplyClient(const std::shared_ptr<FtpSession>& session,
                                   FtpContext* context) {
   context->set_destination(Destination::kDestClient);
   SendTo(session, context);
+}
+
 }
 

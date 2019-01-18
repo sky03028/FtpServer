@@ -13,8 +13,8 @@
 #include <unordered_map>
 #include <thread>
 
-#include "../model/FtpContext.h"
-#include "../model/FtpSession.h"
+#include "core/FtpContext.h"
+#include "core/FtpSession.h"
 #include "defines/FtpCodes.h"
 
 #include "utils/CodeConverter.h"
@@ -22,6 +22,8 @@
 #include "utils/Utils.h"
 #include "utils/JsonCreator.h"
 #include "middleware/Socket.h"
+
+namespace ftp {
 
 FtpController::FtpController() {
 
@@ -68,8 +70,7 @@ bool FtpController::Init() {
 }
 
 /* parent processer(ftp-control) */
-int FtpController::ControlHandler(
-    const std::shared_ptr<FtpSession> &session) {
+int FtpController::ControlHandler(const std::shared_ptr<FtpSession> &session) {
   int nbytes;
   char buffer[2048];
   int sockfd_list[2];
@@ -151,8 +152,8 @@ int FtpController::ControlHandler(
   return 0;
 }
 
-int FtpController::CommandHandler(
-    const std::shared_ptr<FtpSession> &session, FtpContext* context) {
+int FtpController::CommandHandler(const std::shared_ptr<FtpSession> &session,
+                                  FtpContext* context) {
   char command[5];
   char content[2048];
 
@@ -282,8 +283,8 @@ int FtpController::ReplyClient(const std::shared_ptr<FtpSession> &session,
   return 0;
 }
 
-int FtpController::NotifyTransfer(
-    const std::shared_ptr<FtpSession>& session, FtpContext* context) {
+int FtpController::NotifyTransfer(const std::shared_ptr<FtpSession>& session,
+                                  FtpContext* context) {
   SendTo(session, context);
   return 0;
 }
@@ -293,7 +294,7 @@ int FtpController::ftp_cwd(const std::shared_ptr<FtpSession> &session,
                            FtpContext *context) {
   std::string reply_content;
 
-  assert(context->content_type() == ContentType::kString);
+  assert(context->content_type() == model::ContentType::kString);
   std::string path = context->content();
 
   int errcode;
@@ -349,7 +350,7 @@ int FtpController::ftp_abor(const std::shared_ptr<FtpSession> &session,
   creator.SerializeAsString();
 
   context->set_destination(Destination::kDestTransfer);
-  context->set_content_type(ContentType::kJson);
+  context->set_content_type(model::ContentType::kJson);
   context->set_content(creator.SerializeAsString());
   NotifyTransfer(session, context);
   ReplyClient(session, FTP_ABOROK, std::string("Abort ok."));
@@ -366,7 +367,7 @@ int FtpController::ftp_list(const std::shared_ptr<FtpSession> &session,
     creator.SerializeAsString();
 
     context->set_destination(Destination::kDestTransfer);
-    context->set_content_type(ContentType::kJson);
+    context->set_content_type(model::ContentType::kJson);
     context->set_content(creator.SerializeAsString());
     SendTo(session, context);
   }
@@ -389,7 +390,7 @@ int FtpController::ftp_list(const std::shared_ptr<FtpSession> &session,
     creator.SetInt("cmdtype", TRANSFER_SENDCOMMAND_REQ);
     creator.SetString("dirlist", dirlist);
 
-    context->set_content_type(ContentType::kJson);
+    context->set_content_type(model::ContentType::kJson);
     context->set_content(creator.SerializeAsString());
     context->set_destination(Destination::kDestTransfer);
     SendTo(session, context);
@@ -410,7 +411,7 @@ int FtpController::ftp_pass(const std::shared_ptr<FtpSession> &session,
 int FtpController::ftp_port(const std::shared_ptr<FtpSession> &session,
                             FtpContext *context) {
   std::string content;
-  if (context->content_type() == ContentType::kString) {
+  if (context->content_type() == model::ContentType::kString) {
     content = context->content();
   }
 
@@ -421,7 +422,7 @@ int FtpController::ftp_port(const std::shared_ptr<FtpSession> &session,
     creator.SetString("content", content);
 
     context->set_destination(Destination::kDestTransfer);
-    context->set_content_type(ContentType::kJson);
+    context->set_content_type(model::ContentType::kJson);
     context->set_content(creator.SerializeAsString());
     NotifyTransfer(session, context);
   }
@@ -441,7 +442,7 @@ int FtpController::ftp_retr(const std::shared_ptr<FtpSession> &session,
                             FtpContext *context) {
   std::string cur_directory;
   std::string directory;
-  if (context->content_type() == ContentType::kString) {
+  if (context->content_type() == model::ContentType::kString) {
     directory = context->content();
     directory = Utils::DeleteSpace(directory);
     directory = Utils::DeleteCRLF(directory);
@@ -461,7 +462,7 @@ int FtpController::ftp_retr(const std::shared_ptr<FtpSession> &session,
     creator.SetInt("cmdtype", TRANSFER_TRY_CONNNECT_REQ);
 
     context->set_destination(Destination::kDestTransfer);
-    context->set_content_type(ContentType::kJson);
+    context->set_content_type(model::ContentType::kJson);
     context->set_content(creator.SerializeAsString());
     NotifyTransfer(session, context);
   }
@@ -474,7 +475,7 @@ int FtpController::ftp_retr(const std::shared_ptr<FtpSession> &session,
     creator.SetString("content", directory);
 
     context->set_destination(Destination::kDestTransfer);
-    context->set_content_type(ContentType::kJson);
+    context->set_content_type(model::ContentType::kJson);
     context->set_content(creator.SerializeAsString());
     NotifyTransfer(session, context);
   }
@@ -485,7 +486,7 @@ int FtpController::ftp_retr(const std::shared_ptr<FtpSession> &session,
 int FtpController::ftp_stor(const std::shared_ptr<FtpSession> &session,
                             FtpContext *context) {
   std::string directory;
-  if (context->content_type() == ContentType::kString) {
+  if (context->content_type() == model::ContentType::kString) {
     directory = context->content();
     directory = Utils::DeleteSpace(directory);
     directory = Utils::DeleteCRLF(directory);
@@ -499,7 +500,7 @@ int FtpController::ftp_stor(const std::shared_ptr<FtpSession> &session,
     creator.SetInt("cmdtype", TRANSFER_TRY_CONNNECT_REQ);
 
     context->set_destination(Destination::kDestTransfer);
-    context->set_content_type(ContentType::kJson);
+    context->set_content_type(model::ContentType::kJson);
     context->set_content(creator.SerializeAsString());
     NotifyTransfer(session, context);
   }
@@ -512,7 +513,7 @@ int FtpController::ftp_stor(const std::shared_ptr<FtpSession> &session,
     creator.SetString("directory", directory);
 
     context->set_destination(Destination::kDestTransfer);
-    context->set_content_type(ContentType::kJson);
+    context->set_content_type(model::ContentType::kJson);
     context->set_content(creator.SerializeAsString());
     NotifyTransfer(session, context);
   }
@@ -530,7 +531,7 @@ int FtpController::ftp_syst(const std::shared_ptr<FtpSession> &session,
 int FtpController::ftp_type(const std::shared_ptr<FtpSession> &session,
                             FtpContext *context) {
   std::string format;
-  if (context->content_type() == ContentType::kString) {
+  if (context->content_type() == model::ContentType::kString) {
     format = context->content();
     format = Utils::DeleteSpace(format);
   }
@@ -553,7 +554,7 @@ int FtpController::ftp_pasv(const std::shared_ptr<FtpSession> &session,
   creator.SetInt("cmdtype", TRANSFER_PASV_STANDBY_REQ);
 
   context->set_destination(Destination::kDestTransfer);
-  context->set_content_type(ContentType::kJson);
+  context->set_content_type(model::ContentType::kJson);
   context->set_content(creator.SerializeAsString());
   NotifyTransfer(session, context);
   return 0;
@@ -599,3 +600,6 @@ int FtpController::ftp_cdup(const std::shared_ptr<FtpSession> &session,
   ReplyClient(session, FTP_CWDOK, reply_content);
   return 0;
 }
+
+}
+

@@ -10,6 +10,8 @@
 
 #include "NetworkAdapter.h"
 
+namespace model {
+
 class Session;
 
 class Controller : public NetworkAdapter {
@@ -17,5 +19,7 @@ class Controller : public NetworkAdapter {
   Controller() = default;
   virtual ~Controller() = default;
 };
+
+}
 
 #endif /* INCLUDE_CORE_CONTROLLER_H_ */

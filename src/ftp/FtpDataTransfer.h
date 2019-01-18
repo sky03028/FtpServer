@@ -8,14 +8,15 @@
 #ifndef SRC_FTP_FTPDATATRANSFER_H_
 #define SRC_FTP_FTPDATATRANSFER_H_
 
-
 #include <memory>
 #include "core/Transfer.h"
+
+namespace ftp {
 
 class FtpSession;
 class FtpContext;
 
-class FtpDataTransfer : public Transfer {
+class FtpDataTransfer : public model::Transfer {
  public:
   FtpDataTransfer();
   virtual ~FtpDataTransfer();
@@ -41,5 +42,7 @@ class FtpDataTransfer : public Transfer {
   void ReplyClient(const std::shared_ptr<FtpSession>& session,
                    FtpContext* context);
 };
+
+}
 
 #endif /* SRC_FTP_FTPDATATRANSFER_H_ */

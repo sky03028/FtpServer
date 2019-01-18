@@ -8,6 +8,8 @@
 #ifndef INCLUDE_CORE_CONTEXT_H_
 #define INCLUDE_CORE_CONTEXT_H_
 
+namespace model {
+
 class ContentType {
  public:
   static const int kUndefined = 0;
@@ -41,5 +43,7 @@ class Context {
   int content_type_;
   std::string content_;
 };
+
+}
 
 #endif /* INCLUDE_CORE_CONTEXT_H_ */

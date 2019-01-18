@@ -12,6 +12,8 @@
 #include "core/Session.h"
 #include "middleware/Socket.h"
 
+namespace model {
+
 class DefaultSession : public Session {
  public:
   DefaultSession() = default;
@@ -51,9 +53,9 @@ class DefaultSession : public Session {
     return nbytes;
   }
 
-  virtual void Create(const int conn_type) {
+  virtual void Create(const int type) {
     int result = 0;
-    switch (conn_type) {
+    switch (type) {
       case ConnectionType::kClient: {
         result = Socket::CreateClient(ip_address(), port());
       }
@@ -76,9 +78,11 @@ class DefaultSession : public Session {
   virtual void Destory() {
     if (listen_sockfd() > 0) {
       Close(listen_sockfd());
+      set_listen_sockfd(-1);
     }
     if (sockfd() > 0) {
       Close(sockfd());
+      set_sockfd(-1);
     }
   }
 
@@ -101,5 +105,7 @@ class DefaultSession : public Session {
   static const int kReadTimeout = 3000;  // ms
 
 };
+
+}
 
 #endif /* SRC_MODEL_DEFAULTSESSION_H_ */

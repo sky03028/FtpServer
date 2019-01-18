@@ -13,8 +13,13 @@
 #include "../ftp/FtpController.h"
 #include "../ftp/FtpDataTransfer.h"
 
+namespace model {
 class Session;
 class Context;
+}
+
+namespace ftp {
+
 class FtpSession;
 
 class FtpMaster : public FtpController, public FtpDataTransfer {
@@ -24,12 +29,14 @@ class FtpMaster : public FtpController, public FtpDataTransfer {
 
   int Setup(std::shared_ptr<FtpSession> &session);
 
-  virtual int RecvFrom(const std::shared_ptr<Session>& session,
-                       Context* context);
-  virtual int SendTo(const std::shared_ptr<Session> & session,
-                     Context* context);
-  virtual void Reply(const std::shared_ptr<Session>& session,
+  virtual int RecvFrom(const std::shared_ptr<model::Session>& session,
+                       model::Context* context);
+  virtual int SendTo(const std::shared_ptr<model::Session> & session,
+                     model::Context* context);
+  virtual void Reply(const std::shared_ptr<model::Session>& session,
                      const std::string& content);
 };
+
+}
 
 #endif /* SRC_FTP_FTPMASTER_H_ */

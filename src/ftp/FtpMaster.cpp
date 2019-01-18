@@ -12,15 +12,17 @@
 #include <sys/wait.h>
 #include <iostream>
 
-#include "../model/FtpContext.h"
-#include "../model/FtpSession.h"
+#include "core/FtpContext.h"
+#include "core/FtpSession.h"
 #include "middleware/Socket.h"
+
+namespace ftp {
 
 int FtpMaster::Setup(std::shared_ptr<FtpSession> &session) {
 
   std::shared_ptr<FtpSession> ctrl_session = session;
   std::shared_ptr<FtpSession> trans_session = std::make_shared<FtpSession>(
-      (int(SessionType::kTypeFTP)));
+      (int(model::SessionType::kTypeFTP)));
 #if defined(__linux__)
   int sockfd[2];
   assert(0 == socketpair(AF_UNIX, SOCK_STREAM, 0, sockfd));
@@ -57,10 +59,10 @@ int FtpMaster::Setup(std::shared_ptr<FtpSession> &session) {
   return 0;
 }
 
-int FtpMaster::RecvFrom(const std::shared_ptr<Session>& session,
-                        Context* context) {
+int FtpMaster::RecvFrom(const std::shared_ptr<model::Session>& session,
+                        model::Context* context) {
   std::shared_ptr<FtpSession> ftp_session;
-  if (session->type() == SessionType::kTypeFTP) {
+  if (session->type() == model::SessionType::kTypeFTP) {
     ftp_session = std::static_pointer_cast<FtpSession>(session);
   }
   if (ftp_session == nullptr) {
@@ -83,10 +85,10 @@ int FtpMaster::RecvFrom(const std::shared_ptr<Session>& session,
   return nbytes;
 }
 
-int FtpMaster::SendTo(const std::shared_ptr<Session>& session,
-                      Context* context) {
+int FtpMaster::SendTo(const std::shared_ptr<model::Session>& session,
+                      model::Context* context) {
   std::shared_ptr<FtpSession> ftp_session;
-  if (session->type() == SessionType::kTypeFTP) {
+  if (session->type() == model::SessionType::kTypeFTP) {
     ftp_session = std::static_pointer_cast<FtpSession>(session);
   }
   if (ftp_session == nullptr) {
@@ -108,11 +110,14 @@ int FtpMaster::SendTo(const std::shared_ptr<Session>& session,
   return nbytes;
 }
 
-void FtpMaster::Reply(const std::shared_ptr<Session>& session,
+void FtpMaster::Reply(const std::shared_ptr<model::Session>& session,
                       const std::string& content) {
   std::unique_ptr<FtpContext> context(new FtpContext());
-  context->set_content_type(ContentType::kString);
+  context->set_content_type(model::ContentType::kString);
   context->set_content(content);
   context->set_destination(Destination::kDestClient);
   session->SendTo(context.get());
 }
+
+}
+

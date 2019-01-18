@@ -12,6 +12,8 @@
 
 #include "NetworkDriver.h"
 
+namespace model {
+
 class Context;
 
 class SessionType {
@@ -83,5 +85,7 @@ class Session : public NetworkDriver {
   std::mutex mutex_;
 
 };
+
+}
 
 #endif // SESSION_H

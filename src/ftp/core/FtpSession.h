@@ -5,13 +5,15 @@
  *      Author: xueda
  */
 
-#ifndef SRC_MODEL_FTPSESSION_H_
-#define SRC_MODEL_FTPSESSION_H_
+#ifndef SRC_FTP_CORE_FTPSESSION_H_
+#define SRC_FTP_CORE_FTPSESSION_H_
 
 #include "core/Context.h"
-#include "DefaultSession.h"
+#include "model/DefaultSession.h"
 
-class FtpSession : public DefaultSession {
+namespace ftp {
+
+class FtpSession : public model::DefaultSession {
  public:
   FtpSession(const int type)
       : ipc_sockfd_(-1),
@@ -71,7 +73,7 @@ class FtpSession : public DefaultSession {
     return type_;
   }
 
-  virtual int IpcRecv(Context* context) {
+  virtual int IpcRecv(model::Context* context) {
     if (ipc_sockfd() <= 0) {
       return -1;
     }
@@ -84,7 +86,7 @@ class FtpSession : public DefaultSession {
     return nbytes;
   }
 
-  virtual int IpcSend(Context* context) {
+  virtual int IpcSend(model::Context* context) {
     if (ipc_sockfd() <= 0) {
       return -1;
     }
@@ -95,6 +97,7 @@ class FtpSession : public DefaultSession {
   virtual void Destory() {
     DefaultSession::Destory();
     DefaultSession::Close(ipc_sockfd());
+    set_ipc_sockfd(-1);
   }
 
  private:
@@ -107,4 +110,6 @@ class FtpSession : public DefaultSession {
   int type_;
 };
 
-#endif /* SRC_MODEL_FTPSESSION_H_ */
+}
+
+#endif /* SRC_FTP_CORE_FTPSESSION_H_ */

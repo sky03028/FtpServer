@@ -2,12 +2,14 @@
 #include <stdlib.h>
 #include "FtpService.h"
 
+#include "../ftp/core/FtpSession.h"
 #include "../ftp/FtpMaster.h"
-#include "../model/FtpSession.h"
 #include "middleware/Socket.h"
 #include "utils/Utils.h"
 
 extern "C" int fork();
+
+namespace service {
 
 FtpService::FtpService()
     : listen_socket_(-1),
@@ -20,7 +22,7 @@ FtpService::FtpService()
 FtpService::~FtpService() {
 }
 
-void FtpService::SplitProcessor(std::shared_ptr<FtpSession>& session) {
+void FtpService::SplitProcessor(std::shared_ptr<ftp::FtpSession>& session) {
   int pid;
 
   pid = fork();
@@ -28,8 +30,8 @@ void FtpService::SplitProcessor(std::shared_ptr<FtpSession>& session) {
     perror("fork");
   } else if (pid == 0) {
     std::cout << "Ftp Running." << std::endl;
-    FtpMaster *master;
-    master = new FtpMaster();
+    ftp::FtpMaster *master;
+    master = new ftp::FtpMaster();
     master->Setup(session);
     delete master;
 
@@ -42,7 +44,7 @@ void FtpService::SplitProcessor(std::shared_ptr<FtpSession>& session) {
 
 void FtpService::Handler(void *arg) {
   do {
-    std::shared_ptr<FtpSession> session;
+    std::shared_ptr<ftp::FtpSession> session;
     {
       std::unique_lock<std::mutex> lock(mutex_);
       cond_var_.wait(lock, [this] {return !sessions_.empty();});
@@ -99,8 +101,8 @@ int FtpService::Start() {
         Utils::ThreadSleep(1000);
         continue;
       }
-      std::shared_ptr<FtpSession> session(
-          new FtpSession(SessionType::kTypeFTP));
+      std::shared_ptr<ftp::FtpSession> session(
+          new ftp::FtpSession(model::SessionType::kTypeFTP));
       session->set_listen_sockfd(listen_socket_);
       session->set_sockfd(sd);
       session->set_ip_address(client.sin_addr.s_addr);
@@ -114,5 +116,7 @@ int FtpService::Start() {
   thread_pool_->ThreadsAsyncJoin();
 
   return 0;
+}
+
 }
 

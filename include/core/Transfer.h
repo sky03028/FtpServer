@@ -10,10 +10,14 @@
 
 #include "NetworkAdapter.h"
 
+namespace model {
+
 class Transfer : public NetworkAdapter {
  public:
   Transfer() = default;
   virtual ~Transfer() = default;
 };
+
+}
 
 #endif /* INCLUDE_CORE_TRANSFER_H_ */

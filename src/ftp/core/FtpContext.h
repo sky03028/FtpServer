@@ -5,8 +5,8 @@
  *      Author: xueda
  */
 
-#ifndef SRC_MODEL_FTPCONTEXT_H_
-#define SRC_MODEL_FTPCONTEXT_H_
+#ifndef SRC_FTP_CORE_FTPCONTEXT_H_
+#define SRC_FTP_CORE_FTPCONTEXT_H_
 
 #include <assert.h>
 #include <string.h>
@@ -14,6 +14,8 @@
 #include <memory>
 
 #include "core/Context.h"
+
+namespace ftp {
 
 enum TransferMode {
   PASV_MODE_ENABLE = 1,
@@ -126,7 +128,7 @@ class BinaryObject {
   std::mutex mutex_;
 };
 
-class FtpContext : public Context {
+class FtpContext : public model::Context {
  public:
   FtpContext()
       : source_(Source::kSrcUndefined),
@@ -162,4 +164,6 @@ class FtpContext : public Context {
   std::shared_ptr<BinaryObject> object_;
 };
 
-#endif /* SRC_MODEL_FTPCONTEXT_H_ */
+}
+
+#endif /* SRC_FTP_CORE_FTPCONTEXT_H_ */

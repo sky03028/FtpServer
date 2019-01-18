@@ -8,6 +8,8 @@
 #ifndef INCLUDE_CORE_NETWORKDRIVER_H_
 #define INCLUDE_CORE_NETWORKDRIVER_H_
 
+namespace model {
+
 class Context;
 
 class ConnectionType {
@@ -29,5 +31,7 @@ class NetworkDriver {
 
   virtual void Destory() = 0;
 };
+
+}
 
 #endif /* INCLUDE_CORE_NETWORKDRIVER_H_ */

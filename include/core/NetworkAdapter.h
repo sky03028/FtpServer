@@ -10,6 +10,8 @@
 
 #include <memory>
 
+namespace model {
+
 class Session;
 class Context;
 
@@ -25,5 +27,7 @@ class NetworkAdapter {
   virtual void Reply(const std::shared_ptr<Session>& session,
                      const std::string& content) = 0;
 };
+
+}
 
 #endif /* INCLUDE_CORE_NETWORKADAPTER_H_ */
