@@ -15,13 +15,13 @@ namespace ftp {
 
 class FtpSession : public model::DefaultSession {
  public:
-  FtpSession(const int type)
+  FtpSession()
       : ipc_sockfd_(-1),
-        transfer_pid_(0),
-        directory_("/"),
+        peer_pid_(0),
+        curr_dir_("/home"),
+        root_dir_("/"),
         has_abort_(false),
-        transfer_mode_(0),
-        type_(type) {
+        type_(model::SessionType::kTypeFTP) {
   }
   virtual ~FtpSession() {
     Destory();
@@ -34,25 +34,25 @@ class FtpSession : public model::DefaultSession {
     return ipc_sockfd_;
   }
 
-  void set_transfer_pid(const int pid) {
-    transfer_pid_ = pid;
+  void set_peer_pid(const int pid) {
+    peer_pid_ = pid;
   }
-  int transfer_pid() const {
-    return transfer_pid_;
-  }
-
-  void set_directory(const std::string& directory) {
-    directory_ = directory;
-  }
-  const std::string& directory() const {
-    return directory_;
+  int peer_pid() const {
+    return peer_pid_;
   }
 
-  void set_root_directory(const std::string& directory) {
-    root_directory_ = directory;
+  void set_curr_dir(const std::string& directory) {
+    curr_dir_ = directory;
   }
-  const std::string& root_directory() const {
-    return directory_;
+  const std::string& curr_dir() const {
+    return curr_dir_;
+  }
+
+  void set_root_dir(const std::string& directory) {
+    root_dir_ = directory;
+  }
+  const std::string& root_dir() const {
+    return root_dir_;
   }
 
   void set_abort_flag(const bool flag) {
@@ -60,13 +60,6 @@ class FtpSession : public model::DefaultSession {
   }
   bool has_abort() const {
     return has_abort_;
-  }
-
-  void set_transfer_mode(const int mode) {
-    transfer_mode_ = mode;
-  }
-  int transfer_mode() const {
-    return transfer_mode_;
   }
 
   virtual int type() const {
@@ -79,7 +72,7 @@ class FtpSession : public model::DefaultSession {
     }
     unsigned char buffer[4096];
     memset(buffer, 0, sizeof(buffer));
-    int nbytes = Recv(ipc_sockfd(), buffer, 4096);
+    int nbytes = DefaultSession::Recv(ipc_sockfd(), buffer, 4096);
     if (nbytes > 0) {
       context->set_content((char*) buffer);
     }
@@ -90,8 +83,9 @@ class FtpSession : public model::DefaultSession {
     if (ipc_sockfd() <= 0) {
       return -1;
     }
-    return Send(ipc_sockfd(), (unsigned char*) context->content().c_str(),
-                context->content().size());
+    return DefaultSession::Send(ipc_sockfd(),
+                                (unsigned char*) context->content().c_str(),
+                                context->content().size());
   }
 
   virtual void Destory() {
@@ -100,13 +94,17 @@ class FtpSession : public model::DefaultSession {
     set_ipc_sockfd(-1);
   }
 
+  bool HasMessageArrived() {
+    int sockfd_list[2] = { sockfd(), ipc_sockfd() };
+    return DefaultSession::HasMessageArrived(sockfd_list, sizeof(sockfd_list), 3000);
+  }
+
  private:
   int ipc_sockfd_;
-  int transfer_pid_;
-  std::string directory_;
-  std::string root_directory_;
+  int peer_pid_;
+  std::string curr_dir_;
+  std::string root_dir_;
   bool has_abort_;
-  int transfer_mode_;
   int type_;
 };
 

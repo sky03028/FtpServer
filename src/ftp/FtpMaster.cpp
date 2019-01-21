@@ -21,8 +21,7 @@ namespace ftp {
 int FtpMaster::Setup(std::shared_ptr<FtpSession> &session) {
 
   std::shared_ptr<FtpSession> ctrl_session = session;
-  std::shared_ptr<FtpSession> trans_session = std::make_shared<FtpSession>(
-      (int(model::SessionType::kTypeFTP)));
+  std::shared_ptr<FtpSession> trans_session = std::make_shared<FtpSession>();
 #if defined(__linux__)
   int sockfd[2];
   assert(0 == socketpair(AF_UNIX, SOCK_STREAM, 0, sockfd));
@@ -33,7 +32,6 @@ int FtpMaster::Setup(std::shared_ptr<FtpSession> &session) {
 #endif
 
   int pid;
-
   pid = fork();
   if (pid == -1) {
     perror("fork");
@@ -41,15 +39,16 @@ int FtpMaster::Setup(std::shared_ptr<FtpSession> &session) {
     /* ftp-data processer */
     std::cout << getpid() << std::endl;
     Socket::Close(ctrl_session->ipc_sockfd());
-    Socket::Close(ctrl_session->listen_sockfd());
+    Socket::Close(ctrl_session->sockfd());
     TransferHandler(trans_session);
   } else if (pid > 0) {
     /* ftp-control processer */
     std::cout << getpid() << std::endl;
-    session->set_transfer_pid(pid);
+    session->set_peer_pid(pid);
     Socket::Close(trans_session->ipc_sockfd());
     ControlHandler(ctrl_session);
     waitpid(pid, nullptr, 0);
+    session->set_alive(false);
 
     std::cout << "PID : " << pid << " FTP-DATA Processer exit." << std::endl;
     std::cout << "PID : " << getpid() << " FTP-CONTORL Processer exit."

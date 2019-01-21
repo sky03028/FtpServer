@@ -1,9 +1,10 @@
 #ifndef SERVICE_H
 #define SERVICE_H
 
-#include <deque>
+#include <queue>
 #include <mutex>
 #include <memory>
+#include <list>
 #include <condition_variable>
 
 #include "core/Service.h"
@@ -28,15 +29,13 @@ class FtpService : public model::Service {
   void Monitor(void *arg);
   void SplitProcessor(std::shared_ptr<ftp::FtpSession>& session);
 
-  int listen_socket_;
-  int accecpt_timeout_;
   int max_connected_cnt_;
-  int max_thread_cnt_;
 
   std::mutex mutex_;
   std::condition_variable cond_var_;
-  std::deque<std::shared_ptr<ftp::FtpSession>> sessions_;
+
   std::unique_ptr<ThreadPool> thread_pool_;
+  std::queue<std::shared_ptr<ftp::FtpSession>> queue_;
   bool running_;
 
   static const int kFtpServicePort = 21;

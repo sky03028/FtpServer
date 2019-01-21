@@ -59,7 +59,6 @@ int Socket::Create() {
 }
 
 int Socket::Close(int sockfd) {
-
   if (sockfd >= 0) {
 #if defined(__WIN32__)
     closesocket(sockfd);
@@ -125,6 +124,20 @@ unsigned int Socket::Domain2IpAddress(const char *host) {
 
 }
 
+unsigned int Socket::GetBindIpAddress(const int sockfd) {
+  struct sockaddr_in local;
+  socklen_t socklen = sizeof(sockaddr);
+  getsockname(sockfd, (sockaddr *) &local, &socklen);
+  return local.sin_addr.s_addr;
+}
+
+unsigned short Socket::GetBindPort(const int sockfd) {
+  struct sockaddr_in local;
+  socklen_t socklen = sizeof(sockaddr);
+  getsockname(sockfd, (sockaddr *) &local, &socklen);
+  return (local.sin_port << 8 | local.sin_port >> 8);
+}
+
 int Socket::CheckRecvBuffer(int sockfd) {
   int nbytes = 0;
   unsigned char buffer[4096];
@@ -140,7 +153,7 @@ int Socket::CheckRecvBuffer(int sockfd) {
 }
 
 int Socket::Select(int *SockQueue, int QueueSize, int timeout, int option,
-                   fd_set &optionfds) {
+                   fd_set* optionfds) {
   struct timeval select_timeout;
   int result;
 
@@ -160,26 +173,26 @@ int Socket::Select(int *SockQueue, int QueueSize, int timeout, int option,
       break;
     }
 
-    FD_ZERO(&optionfds);
+    FD_ZERO(optionfds);
     for (int index = 0; index < QueueSize; index++) {
-      FD_SET(SockQueue[index], &optionfds);
+      FD_SET(SockQueue[index], optionfds);
     }
 
     switch (option) {
       case READFDS_TYPE:
-        result = select(maxfds, &optionfds, NULL, NULL, &select_timeout);
+        result = select(maxfds, optionfds, NULL, NULL, &select_timeout);
         break;
 
       case WRITEFDS_TYPE:
-        result = select(maxfds, NULL, &optionfds, NULL, &select_timeout);
+        result = select(maxfds, NULL, optionfds, NULL, &select_timeout);
         break;
 
       case EXCEPTFDS_TYPE:
-        result = select(maxfds, NULL, NULL, &optionfds, &select_timeout);
+        result = select(maxfds, NULL, NULL, optionfds, &select_timeout);
         break;
 
       default:
-        result = select(maxfds, &optionfds, NULL, NULL, &select_timeout);
+        result = select(maxfds, optionfds, NULL, NULL, &select_timeout);
         break;
     }
 
@@ -192,6 +205,16 @@ int Socket::Select(int *SockQueue, int QueueSize, int timeout, int option,
   }
 
   return -1;
+}
+
+bool Socket::HasMessageArrived(int *sockfd_list, const int count,
+                               const int timeout) {
+  fd_set fds;
+  int result = Socket::Select(sockfd_list, count, 100, WRITEFDS_TYPE, &fds);
+  if (result > 0) {
+    return true;
+  }
+  return false;
 }
 
 int Socket::CheckSockError(int sockfd) {
@@ -245,9 +268,8 @@ int Socket::TcpServerCreate(const char *lhost, unsigned short lport) {
   setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, (const char *) &opt,
              sizeof(opt));
   assert(
-      0
-          == bind(listenfd, (struct sockaddr * )&ServAddr,
-                  sizeof(struct sockaddr)));
+      bind(listenfd, (struct sockaddr * )&ServAddr, sizeof(struct sockaddr))
+          == 0);
 
   return listenfd;
 
@@ -258,23 +280,24 @@ int Socket::TcpListen(int sockfd, int maxcnt) {
   return 0;
 }
 
-int Socket::CreateServer(int* listen_sockfd) {
-  struct in_addr ip_addr;
-  ip_addr.s_addr = Socket::GetLocalAddress();
-  int listen_sd = Socket::TcpServerCreate(inet_ntoa(ip_addr), 0);
-  if (listen_sd == -1) {
-    *listen_sockfd = listen_sd;
+int Socket::ServerContact(int listen_sockfd, unsigned int* ip_address,
+                          unsigned short* port) {
+  struct sockaddr_in remote;
+  int sd = TcpAccept(listen_sockfd, (struct sockaddr *) &remote, 3000);
+  if (sd < 0) {
     return -1;
   }
-  TcpListen(listen_sd, 1);
-  *listen_sockfd = listen_sd;
-
-  struct sockaddr_in remote;
-  return TcpAccept(listen_sd, (struct sockaddr *) &remote, 3000);
+  if (ip_address != nullptr) {
+    *ip_address = remote.sin_addr.s_addr;
+  }
+  if (port != nullptr) {
+    *port = (remote.sin_port << 8 | remote.sin_port >> 8);
+  }
+  return sd;
 }
 
-int Socket::CreateClient(const unsigned int ip_address,
-                         const unsigned short port) {
+int Socket::ClientContact(const unsigned int ip_address,
+                          const unsigned short port) {
   struct in_addr ip_addr;
   ip_addr.s_addr = ip_address;
   return TcpConnect(inet_ntoa(ip_addr), port, 3000);
@@ -379,7 +402,7 @@ int Socket::TcpConnect(const char *host, unsigned short port, int timeout) {
         break;
     }
 
-    if (Select(&sockfd, 1, timeout, WRITEFDS_TYPE, fds) <= 0)
+    if (Select(&sockfd, 1, timeout, WRITEFDS_TYPE, &fds) <= 0)
       break;
 
     if (FD_ISSET(sockfd, &fds)) {
@@ -428,26 +451,6 @@ int Socket::TcpRecv(int sockfd, unsigned char *data, int nbytes) {
   } while (1);
 
   return total_bytes;
-}
-
-int Socket::TcpRecv(const int sockfd, unsigned char* data, const int length,
-                    const int timeout/*ms*/) {
-  fd_set fds;
-  int nbytes = 0;
-  int result = Select((int*) &sockfd, 1, timeout, READFDS_TYPE, fds);
-  if (result <= 0) {
-    return 0;
-  } else if (result > 0) {
-    if (FD_ISSET(sockfd, &fds)) {
-      nbytes = TcpRecv(sockfd, data, length);
-      if (nbytes <= 0) {
-        if (CheckSockError(sockfd) == EAGAIN) {
-          return -1;
-        }
-      }
-    }
-  }
-  return 0;
 }
 
 int Socket::TcpSend(int sockfd, unsigned char *data, int nbytes) {

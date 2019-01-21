@@ -34,7 +34,7 @@ void FtpDataTransfer::TransferHandler(
 
   std::unique_ptr<FtpContext> context(new FtpContext());
   do {
-    int result = Socket::Select(&ipc_socket, 1, 100, READFDS_TYPE, fds);
+    int result = Socket::Select(&ipc_socket, 1, 100, READFDS_TYPE, &fds);
     if (result == 0) {
       continue;
     } else if (result > 0) {
@@ -103,40 +103,28 @@ int FtpDataTransfer::PasvModeStandby(const std::shared_ptr<FtpSession> &session,
   creator.SetInt("cmdtype", TRANSFER_PASV_STANDBY_RES);
 
   do {
-    struct in_addr ip_addr;
-    ip_addr.s_addr = Socket::GetLocalAddress();
-
-    int listen_sockfd = Socket::TcpServerCreate(inet_ntoa(ip_addr), 0);
-    if (listen_sockfd == -1) {
-      Socket::Close(listen_sockfd);
+    if (!session->Create(model::ConnectionType::kServer)) {
       creator.SetBool("status", false);
+      creator.SetString("content", "Create server session fail.");
       break;
     }
-    Socket::TcpListen(listen_sockfd, 1);
-    session->set_listen_sockfd(listen_sockfd);
 
-    struct sockaddr_in local;
-    socklen_t socklen = sizeof(struct sockaddr);
-    getsockname(listen_sockfd, (struct sockaddr *) &local, &socklen);
-
-    unsigned short port = local.sin_port << 8 | local.sin_port >> 8;
+    unsigned short listen_port = Socket::GetBindPort(session->listen_sockfd());
+    unsigned int listen_ip_address = Socket::GetBindIpAddress(
+        session->sockfd());
     unsigned char ipv4[4];
-    ipv4[0] = (unsigned char) local.sin_addr.s_addr;
-    ipv4[1] = (unsigned char) local.sin_addr.s_addr >> 8;
-    ipv4[2] = (unsigned char) local.sin_addr.s_addr >> 16;
-    ipv4[3] = (unsigned char) local.sin_addr.s_addr >> 24;
+    ipv4[0] = (unsigned char) listen_ip_address;
+    ipv4[1] = (unsigned char) listen_ip_address >> 8;
+    ipv4[2] = (unsigned char) listen_ip_address >> 16;
+    ipv4[3] = (unsigned char) listen_ip_address >> 24;
 
     std::string reply_content = "Entering PASV mode (" + std::to_string(ipv4[0])
         + "," + std::to_string(ipv4[1]) + "," + std::to_string(ipv4[2]) + ","
-        + std::to_string(ipv4[3]) + "," + std::to_string(port / 256) + ","
-        + std::to_string(port % 256) + ")";
-
-    session->set_ip_address(ip_addr.s_addr);
-    session->set_port(port);
+        + std::to_string(ipv4[3]) + "," + std::to_string(listen_port / 256)
+        + "," + std::to_string(listen_port % 256) + ")";
 
     creator.SetBool("status", true);
     creator.SetString("content", reply_content);
-    session->set_transfer_mode(PASV_MODE_ENABLE);
 
   } while (0);
 
@@ -181,7 +169,6 @@ int FtpDataTransfer::PortModeStandby(const std::shared_ptr<FtpSession> &session,
   creator.SetBool("status", true);
   creator.SetInt("cmdtype", TRANSFER_PORT_STANDBY_RES);
   creator.SetString("content", reply_content);
-  session->set_transfer_mode(PORT_MODE_ENABLE);
 
   context->set_content_type(model::ContentType::kJson);
   context->set_content(creator.SerializeAsString());
@@ -195,15 +182,12 @@ int FtpDataTransfer::TrySendCommand(const std::shared_ptr<FtpSession> &session,
   if (session->sockfd() > 0) {
     ReplyClient(session, context);
   }
-  std::cout << strerror(Socket::CheckSockError(session->sockfd())) << std::endl;
-  Socket::Close(session->sockfd());
-  session->set_sockfd(INVALID_SOCKET);
 
   JsonCreator creator;
   creator.SetInt("cmdtype", TRANSFER_SENDCOMMAND_RES);
   if (result > 0) {
     creator.SetBool("status", true);
-    creator.SetString("content", "Transfer complete.");
+    creator.SetString("content", "Executing command.");
   } else {
     creator.SetBool("status", false);
   }
@@ -216,41 +200,17 @@ int FtpDataTransfer::TrySendCommand(const std::shared_ptr<FtpSession> &session,
 
 int FtpDataTransfer::TryContact(const std::shared_ptr<FtpSession> &session,
                                 FtpContext* context) {
-  int result;
-
-  struct sockaddr_in remote;
-  struct in_addr ip_addr;
-  ip_addr.s_addr = session->ip_address();
-
-  std::cout << __FUNCTION__ << " ip_addr = " << ip_addr.s_addr << std::endl;
-  std::cout << __FUNCTION__ << " inet_ntoa(ip_addr) = " << inet_ntoa(ip_addr)
-            << std::endl;
-  std::cout << __FUNCTION__ << " session.GetTransferPort() = "
-            << ntohs(session->port()) << std::endl;
-
-  switch (session->transfer_mode()) {
-    case PASV_MODE_ENABLE: {
-      result = Socket::TcpAccept(session->listen_sockfd(),
-                                 (struct sockaddr *) &remote, 3 * 1000);
-    }
-      break;
-
-    case PORT_MODE_ENABLE: {
-      result = Socket::TcpConnect(inet_ntoa(ip_addr), session->port(),
-                                  3 * 1000);
-    }
-      break;
-  }
+  bool success = session->Contact();
 
   JsonCreator creator;
   creator.SetInt("cmdtype", TRANSFER_TRY_CONNNECT_RES);
-  if (result > 0) {
-    session->set_sockfd(result);
+  if (success) {
     creator.SetBool("status", true);
-    creator.SetString("content", "Transfer Connected.");
+    creator.SetString("content", "Transfer's connection established.");
   } else {
-    session->set_sockfd(INVALID_SOCKET);
     creator.SetBool("status", false);
+    creator.SetString("content",
+                      "Transfer occurs error when creating connection.");
   }
 
   context->set_content_type(model::ContentType::kJson);
@@ -310,7 +270,7 @@ int FtpDataTransfer::TryFileDownload(const std::shared_ptr<FtpSession> &session,
         break;
       }
 
-      result = Socket::Select(&sockfd, 1, 100, WRITEFDS_TYPE, fds);
+      result = Socket::Select(&sockfd, 1, 100, WRITEFDS_TYPE, &fds);
       if (result > 0) {
         if (FD_ISSET(sockfd, &fds)) {
           //std::cout << "Totalbytes = " << totalBytes << std::endl;
@@ -416,7 +376,7 @@ int FtpDataTransfer::TryFileUpload(const std::shared_ptr<FtpSession> &session,
         break;
       }
 
-      result = Socket::Select(&sockfd, 1, 100, WRITEFDS_TYPE, fds);
+      result = Socket::Select(&sockfd, 1, 100, WRITEFDS_TYPE, &fds);
       if (result > 0) {
         if (FD_ISSET(sockfd, &fds)) {
           /* File stream : client send to server */
@@ -472,6 +432,7 @@ int FtpDataTransfer::TryFileUpload(const std::shared_ptr<FtpSession> &session,
 void FtpDataTransfer::ReplyController(
     const std::shared_ptr<FtpSession> & session, FtpContext* context) {
   context->set_destination(Destination::kDestController);
+  context->set_content_type(model::ContentType::kJson);
   SendTo(session, context);
 }
 

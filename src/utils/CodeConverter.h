@@ -6,7 +6,7 @@
 
 class CodeConverter {
  public:
-  static const int kMaxConvertSize = 255;
+  static const int kMaxConvertSize = 4096;
 
   CodeConverter(const char *from_charset, const char *to_charset) {
     cd = iconv_open(to_charset, from_charset);
@@ -15,12 +15,19 @@ class CodeConverter {
     iconv_close(cd);
   }
 
-  int convert(char *inbuf, int inlen, char *outbuf, int outlen) {
-    char **pin = &inbuf;
-    char **pout = &outbuf;
+  const std::string Make(const std::string& src) {
+    char* inbuf = (char *) src.c_str();
+    char outbuf[kMaxConvertSize];
+    int inlen = src.length();
+    int outlen = sizeof(outbuf);
+    memset(outbuf, 0, sizeof(outbuf));
 
-    memset(outbuf, 0, outlen);
-    return iconv(cd, pin, (size_t *) &inlen, pout, (size_t *) &outlen);
+    char *poutbuf = outbuf;
+
+    char **pin = &inbuf;
+    char **pout = &poutbuf;
+    iconv(cd, pin, (size_t *) &inlen, pout, (size_t *) &outlen);
+    return std::string(outbuf);
   }
 
  private:

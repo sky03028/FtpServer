@@ -44,7 +44,10 @@ class Socket {
 
   static int SetBlock(int sockfd);
 
-  static int Select(int *, int, int, int, fd_set &);
+  static int Select(int *, int, int, int, fd_set *);
+
+  static bool HasMessageArrived(int *sockfd_list, const int count,
+                                const int timeout);
 
   static int CheckSockError(int sockfd);
 
@@ -56,6 +59,10 @@ class Socket {
 
   static unsigned int GetLocalAddress(void);
 
+  static unsigned int GetBindIpAddress(const int sockfd);
+
+  static unsigned short GetBindPort(const int sockfd);
+
   /* TCP */
   static int TcpServerCreate(const char *lhost, unsigned short lport);
 
@@ -65,15 +72,13 @@ class Socket {
 
   static int TcpListen(int sockfd, int maxcnt);
 
-  static int CreateServer(int* listen_sockfd);
+  static int ServerContact(int listen_sockfd, unsigned int* ip_address,
+                           unsigned short* port);
 
-  static int CreateClient(const unsigned int ip_address,
-                          const unsigned short port);
+  static int ClientContact(const unsigned int ip_address,
+                           const unsigned short port);
 
   static int TcpRecv(int sockfd, unsigned char *data, int nbytes);
-
-  static int TcpRecv(int sockfd, unsigned char* data, const int length,
-                     const int timeout/*ms*/);
 
   static int TcpSend(int sockfd, unsigned char *data, int nbytes);
 

@@ -71,80 +71,38 @@ bool FtpController::Init() {
 
 /* parent processer(ftp-control) */
 int FtpController::ControlHandler(const std::shared_ptr<FtpSession> &session) {
-  int nbytes;
-  char buffer[2048];
-  int sockfd_list[2];
-
-  memset(buffer, 0, sizeof(buffer));
 
   ReplyClient(
       session, FTP_GREET,
       "Environment: Linux system. Used UNIX BSD Socket. (FtpServer ver. 0.1)");
 
-  fd_set fds;
-  sockfd_list[0] = session->sockfd();
-  sockfd_list[1] = session->ipc_sockfd();
-
   std::unique_ptr<FtpContext> context(new FtpContext());
   do {
+    if (!session->HasMessageArrived()) {
+      continue;
+    }
+
+    char buffer[4096];
+    memset(buffer, 0, sizeof(buffer));
+    int nbytes = session->RecvFrom(context.get());  // recv from client, timeout 100ms
+    if (nbytes < 0) {
+      /* kill ftp-data processer */
+      kill(session->peer_pid(), SIGTERM);
+      break;
+    } else {
+      context->set_content(std::string(buffer));
+      CommandHandler(session, context.get());
+    }
 
     memset(buffer, 0, sizeof(buffer));
-    nbytes = Socket::Select(sockfd_list, sizeof(sockfd_list) / sizeof(int), 100,
-                            READFDS_TYPE, fds);
-    if (nbytes == 0) {
-      continue;
-    } else if (nbytes > 0) {
-      // clients request
-      if (FD_ISSET(session->sockfd(), &fds)) {
-//        nbytes = Socket::TcpReadLine(session->sockfd(), buffer, sizeof(buffer));
-        context->set_source(Source::kSrcClient);
-        nbytes = RecvFrom(session, context.get());
-        if (nbytes <= 0) {
-          if (Socket::CheckSockError(session->sockfd()) == EAGAIN) {
-            continue;
-          }
-
-          perror("ControlHandler ----> TcpReadOneLine");
-          Socket::Close(session->sockfd());
-          Socket::Close(session->ipc_sockfd());
-
-          std::this_thread::sleep_for(std::chrono::seconds(1));
-          /* kill ftp-data processer */
-          kill(session->transfer_pid(), SIGTERM);
-
-          break;
-        } else {
-          std::unique_ptr<FtpContext> ctx(new FtpContext());
-          ctx->set_content(std::string(buffer));
-          CommandHandler(session, ctx.get());
-        }
-      }
-
-      /* IPC ftp-control process */
-      if (FD_ISSET(session->ipc_sockfd(), &fds)) {
-//        nbytes = RecvInstruction(session.ipc_ctrl_sockfd(), instruction);
-        context->set_source(Source::kSrcTransfer);
-        nbytes = RecvFrom(session, context.get());
-        if (nbytes <= 0) {
-          if (Socket::CheckSockError(session->ipc_sockfd()) == EAGAIN) {
-            continue;
-          }
-
-          perror("FTPControlHandler ---> IPC_RecvInstruction");
-          Socket::Close(session->ipc_sockfd());
-          Socket::Close(session->sockfd());
-
-          std::this_thread::sleep_for(std::chrono::seconds(1));
-
-          /* kill ftp-data processer */
-          kill(session->transfer_pid(), SIGTERM);
-
-          break;
-        } else {
-          ReplyHandler(session, context.get());
-        }
-      }
-
+    nbytes = session->IpcRecv(context.get());
+    if (nbytes < 0) {
+      /* kill ftp-data processer */
+      kill(session->peer_pid(), SIGTERM);
+      break;
+    } else {
+      context->set_content(std::string(buffer));
+      ReplyHandler(session, context.get());
     }
 
   } while (1);
@@ -300,21 +258,14 @@ int FtpController::ftp_cwd(const std::shared_ptr<FtpSession> &session,
   int errcode;
   struct stat file_stat;
 
-  char out[CodeConverter::kMaxConvertSize];
-
-  memset(out, 0, sizeof(out));
-
   CodeConverter cc("GB2312", "UTF-8");
-  cc.convert((char *) path.c_str(), path.length(), out,
-             CodeConverter::kMaxConvertSize);
-
-  path = std::string(out);
+  path = cc.Make(path);
   path = Utils::DeleteSpace(path);
   path = Utils::DeleteCRLF(path);
 
-  std::string directory = session->directory();
-  if (path.size() < session->root_directory().size()) {
-    path = session->root_directory();
+  std::string directory = session->curr_dir();
+  if (path.size() < session->root_dir().size()) {
+    path = session->root_dir();
   }
 
   if (Utils::CheckSymbolExsit(path, '/') == -1) {
@@ -323,8 +274,7 @@ int FtpController::ftp_cwd(const std::shared_ptr<FtpSession> &session,
     }
     path = directory + path;
   }
-  session->set_directory(path);
-
+  session->set_curr_dir(path);
   std::cout << "CWD : " << path << std::endl;
 
   if (0 == stat(path.c_str(), &file_stat)) {
@@ -376,7 +326,7 @@ int FtpController::ftp_list(const std::shared_ptr<FtpSession> &session,
 
   /* 2. try to send command back to client */
   std::string directory;
-  directory = session->directory();
+  directory = session->curr_dir();
 
   std::cout << "FTP_LIST :  directory = " << directory << std::endl;
   if (directory.at(directory.size() - 1) != '/') {
@@ -388,7 +338,7 @@ int FtpController::ftp_list(const std::shared_ptr<FtpSession> &session,
     JsonCreator creator;
     creator.SetBool("status", true);
     creator.SetInt("cmdtype", TRANSFER_SENDCOMMAND_REQ);
-    creator.SetString("dirlist", dirlist);
+    creator.SetString("content", dirlist);
 
     context->set_content_type(model::ContentType::kJson);
     context->set_content(creator.SerializeAsString());
@@ -448,7 +398,7 @@ int FtpController::ftp_retr(const std::shared_ptr<FtpSession> &session,
     directory = Utils::DeleteCRLF(directory);
   }
 
-  cur_directory = session->directory();
+  cur_directory = session->curr_dir();
   if (cur_directory.at(cur_directory.size() - 1) != '/') {
     directory = cur_directory + "/" + directory;
   } else {
@@ -510,7 +460,7 @@ int FtpController::ftp_stor(const std::shared_ptr<FtpSession> &session,
     JsonCreator creator;
     creator.SetBool("status", true);
     creator.SetInt("cmdtype", TRANSFER_FILEUPLOAD_REQ);
-    creator.SetString("directory", directory);
+    creator.SetString("content", directory);
 
     context->set_destination(Destination::kDestTransfer);
     context->set_content_type(model::ContentType::kJson);
@@ -577,7 +527,7 @@ int FtpController::ftp_rest(const std::shared_ptr<FtpSession> &session,
 int FtpController::ftp_pwd(const std::shared_ptr<FtpSession> &session,
                            FtpContext *context) {
   std::string reply_content;
-  std::string directory = "\"" + session->directory() + "\"";
+  std::string directory = "\"" + session->curr_dir() + "\"";
   reply_content = directory + " is current directory.";
   ReplyClient(session, FTP_PWDOK, reply_content);
   return 0;
@@ -588,12 +538,12 @@ int FtpController::ftp_cdup(const std::shared_ptr<FtpSession> &session,
   std::string reply_content;
   std::string directory;
 
-  directory = session->directory();
+  directory = session->curr_dir();
   directory = Utils::GetLastDirPath(directory);
-  if (directory.size() < session->root_directory().size()) {
-    directory = session->root_directory();
+  if (directory.size() < session->root_dir().size()) {
+    directory = session->root_dir();
   }
-  session->set_directory(directory);
+  session->set_curr_dir(directory);
   std::cout << "FTP_CDUP : " << directory << std::endl;
   reply_content = "Directory changed to " + directory;
 

@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include "FtpService.h"
 
-#include "../ftp/core/FtpSession.h"
-#include "../ftp/FtpMaster.h"
+#include "ftp/core/FtpSession.h"
+#include "ftp/FtpMaster.h"
 #include "middleware/Socket.h"
 #include "utils/Utils.h"
 
@@ -12,10 +12,7 @@ extern "C" int fork();
 namespace service {
 
 FtpService::FtpService()
-    : listen_socket_(-1),
-      accecpt_timeout_(3 * 1000),
-      max_connected_cnt_(10),
-      max_thread_cnt_(1),
+    : max_connected_cnt_(1024),
       running_(true) {
 }
 
@@ -47,16 +44,14 @@ void FtpService::Handler(void *arg) {
     std::shared_ptr<ftp::FtpSession> session;
     {
       std::unique_lock<std::mutex> lock(mutex_);
-      cond_var_.wait(lock, [this] {return !sessions_.empty();});
-      session = sessions_.front();
-      sessions_.pop_front();
+      cond_var_.wait(lock, [this] {return !queue_.empty();});
+      session = queue_.front();
+      queue_.pop();
     }
 
     if (session == nullptr) {
       continue;
     }
-    session->set_root_directory("/home/xueda/share/ftpServer");
-    session->set_directory("/home/xueda/share/ftpServer");
     SplitProcessor(session);
   } while (running_);
 }
@@ -76,43 +71,32 @@ void FtpService::Monitor(void *arg) {
 }
 
 int FtpService::Init() {
-  listen_socket_ = Socket::TcpServerCreate(nullptr, kFtpServicePort);
-  Socket::TcpListen(listen_socket_, max_connected_cnt_);
   thread_pool_.reset(new ThreadPool());
   thread_pool_->ThreadsCreate(&FtpService::Monitor, this, nullptr, 1);
-  thread_pool_->ThreadsCreate(&FtpService::Handler, this, nullptr,
-                              max_thread_cnt_);
+  thread_pool_->ThreadsCreate(&FtpService::Handler, this, nullptr, 1);
 
   return 0;
 }
 
 int FtpService::Start() {
-  struct sockaddr_in client;
-  int sd;
-
+  int listen_sockfd = Socket::TcpServerCreate(nullptr, kFtpServicePort);
+  Socket::TcpListen(listen_sockfd, max_connected_cnt_);
   do {
-    sd = Socket::TcpAccept(listen_socket_, (struct sockaddr *) &client,
-                           accecpt_timeout_);
-    if (sd >= 0) {
+    unsigned int ip_address = 0;
+    unsigned short port = 0;
+    int sockfd = Socket::ServerContact(listen_sockfd, &ip_address, &port);
+    if (sockfd >= 0) {
       std::cout << "Get a client" << std::endl;
-      /* To the limit count, refuse connect */
-      if (sessions_.size() == (unsigned int) max_connected_cnt_) {
-        Socket::Close(sd);
-        Utils::ThreadSleep(1000);
-        continue;
-      }
-      std::shared_ptr<ftp::FtpSession> session(
-          new ftp::FtpSession(model::SessionType::kTypeFTP));
-      session->set_listen_sockfd(listen_socket_);
-      session->set_sockfd(sd);
-      session->set_ip_address(client.sin_addr.s_addr);
-      session->set_port(client.sin_port);
+      std::shared_ptr<ftp::FtpSession> session(new ftp::FtpSession());
+      session->set_sockfd(sockfd);
+      session->set_ip_address(ip_address);
+      session->set_port(port);
       std::lock_guard<std::mutex> lock(mutex_);
-      sessions_.push_back(session);
+      queue_.push(session);
       cond_var_.notify_one();
     }
   } while (running_);
-  Socket::Close(listen_socket_);
+  Socket::Close(listen_sockfd);
   thread_pool_->ThreadsAsyncJoin();
 
   return 0;

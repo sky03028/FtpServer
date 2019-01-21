@@ -44,6 +44,7 @@ class DefaultSession : public Session {
     if (sockfd() <= 0) {
       return -1;
     }
+
     char buffer[4096];
     memset(buffer, 0, sizeof(buffer));
     int nbytes = Recv(sockfd(), (unsigned char*) buffer, sizeof(buffer));
@@ -53,26 +54,40 @@ class DefaultSession : public Session {
     return nbytes;
   }
 
-  virtual void Create(const int type) {
-    int result = 0;
+  virtual bool Create(const int type) {
     switch (type) {
-      case ConnectionType::kClient: {
-        result = Socket::CreateClient(ip_address(), port());
-      }
+      case ConnectionType::kClient:
         break;
       case ConnectionType::kServer: {
-        int listen_sockfd = 0;
-        result = Socket::CreateServer(&listen_sockfd);
+        int listen_sockfd = Socket::TcpServerCreate(nullptr, 0);
+        if (listen_sockfd == -1) {
+          return false;
+        }
+        Socket::TcpListen(listen_sockfd, 1);
         set_listen_sockfd(listen_sockfd);
       }
         break;
       default:
         break;
     }
+    return true;
+  }
 
-    if (result > 0) {
-      set_sockfd(result);
+  virtual bool Contact() {
+    int result = -1;
+    if (listen_sockfd() > 0) {
+      unsigned int ip_address = 0;
+      unsigned short port = 0;
+      result = Socket::ServerContact(listen_sockfd(), &ip_address, &port);
+      set_ip_address(ip_address);
+      set_port(port);
+    } else {
+      result = Socket::ClientContact(ip_address(), port());
     }
+    if (result <= 0) {
+      return false;
+    }
+    return true;
   }
 
   virtual void Destory() {
@@ -87,12 +102,16 @@ class DefaultSession : public Session {
   }
 
  protected:
+  bool HasMessageArrived(int* sockfd_list, int count, const int timeout) {
+    return Socket::HasMessageArrived(sockfd_list, count, timeout);
+  }
+
   int Send(const int sockfd, unsigned char *data, const int length) {
     return Socket::TcpSend(sockfd, data, length);
   }
 
   int Recv(const int sockfd, unsigned char *data, const int length) {
-    return Socket::TcpRecv(sockfd, data, length, kReadTimeout);
+    return Socket::TcpRecv(sockfd, data, length);
   }
 
   void Close(const int sockfd) {
@@ -102,7 +121,7 @@ class DefaultSession : public Session {
   }
 
  private:
-  static const int kReadTimeout = 3000;  // ms
+  static const int kReadTimeout = 100;  // ms
 
 };
 

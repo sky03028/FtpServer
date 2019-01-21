@@ -145,16 +145,12 @@ class Utils {
 
   static const int GetFileAttribute(const std::string &path,
                                     struct stat *fileStat) {
-    char out[CodeConverter::kMaxConvertSize];
-
-    memset(out, 0, sizeof(out));
     CodeConverter cc = CodeConverter("gb2312", "utf-8");
-    cc.convert((char *) path.c_str(), strlen(path.c_str()), out,
-               CodeConverter::kMaxConvertSize);
+    const std::string directory = cc.Make(path);
 
-    std::cout << "filePath : " << out << std::endl;
+    std::cout << "Directory : " << directory << std::endl;
 
-    if (-1 == stat(out, fileStat)) {
+    if (-1 == stat(directory.c_str(), fileStat)) {
       return -1;
     }
 
@@ -241,21 +237,7 @@ class Utils {
       if (origin.at(index) == symbol)
         return 0;
     }
-
     return -1;
-  }
-
-  static const std::string GetConvString(const char *from_type,
-                                         const char *to_type,
-                                         const std::string& str) {
-    char out[CodeConverter::kMaxConvertSize];
-
-    memset(out, 0, sizeof(out));
-    CodeConverter cc = CodeConverter(from_type, to_type);
-    cc.convert((char *) str.c_str(), strlen(str.c_str()), out,
-               CodeConverter::kMaxConvertSize);
-
-    return std::string(out);
   }
 };
 

@@ -27,7 +27,9 @@ class NetworkDriver {
 
   virtual int RecvFrom(Context* context) = 0;
 
-  virtual void Create(const int conn_type) = 0;
+  virtual bool Create(const int type) = 0;
+
+  virtual bool Contact() = 0;
 
   virtual void Destory() = 0;
 };

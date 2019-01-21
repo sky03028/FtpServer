@@ -25,11 +25,12 @@ class SessionType {
 class Session : public NetworkDriver {
  public:
   Session()
-      : sockfd_(0),
+      : sockfd_(-1),
         ip_address_(0),
         port_(0),
         timeout_(0),
-        listen_sockfd_(0) {
+        listen_sockfd_(-1),
+        alive_(true) {
   }
   virtual ~Session() {
 
@@ -70,6 +71,13 @@ class Session : public NetworkDriver {
     listen_sockfd_ = listen_sockfd;
   }
 
+  void set_alive(const bool flag) {
+    alive_ = flag;
+  }
+  bool has_alive() const {
+    return alive_;
+  }
+
   const std::mutex& mutex() const {
     return mutex_;
   }
@@ -82,8 +90,8 @@ class Session : public NetworkDriver {
   unsigned short port_;
   int timeout_;
   int listen_sockfd_;
+  bool alive_;
   std::mutex mutex_;
-
 };
 
 }
